@@ -1,0 +1,14 @@
+## Interface: 16001
+## Title: WoW Chess
+## Notes: Ajedrez entre personajes y práctica contra bot en WoW: Forever
+## Author: WoW Chess contributors
+## Version: 0.2.2-beta
+## SavedVariables: WoWChessDB
+
+Core.lua
+Chess.lua
+Bot.lua
+Theme.lua
+Network.lua
+Game.lua
+UI.lua

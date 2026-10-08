@@ -1,0 +1,100 @@
+local _, WC = ...
+local Network = { players = {}, channelId = nil, lastJoin = -100, lastPresence = 0 }
+WC.Network = Network
+
+local function fields(message)
+    local result = {}
+    for part in (message .. "|"):gmatch("(.-)|") do result[#result + 1] = part end
+    return result
+end
+
+function Network.SendWhisper(target, message)
+    if not target or not C_ChatInfo or not C_ChatInfo.SendAddonMessage then return false end
+    local ok, result = pcall(C_ChatInfo.SendAddonMessage, WC.PREFIX, message, "WHISPER", target)
+    return ok and (result == 0 or result == nil)
+end
+
+function Network.SendGame(action, game, payload)
+    if not game or not game.opponent then return false end
+    return Network.SendWhisper(game.opponent, WC.VERSION .. "|" .. action .. "|" .. game.id .. "|" .. (payload or ""))
+end
+
+function Network.SendChannel(message)
+    Network.UpdateChannel()
+    if not Network.channelId then return false end
+    local ok, result = pcall(C_ChatInfo.SendAddonMessage, WC.PREFIX, message, "CHANNEL", tostring(Network.channelId))
+    return ok and (result == 0 or result == nil)
+end
+
+function Network.UpdateChannel()
+    if not GetChannelName then return end
+    local id = GetChannelName(WC.CHANNEL)
+    Network.channelId = type(id) == "number" and id > 0 and id or nil
+end
+
+function Network.Join()
+    if not JoinChannelByName or not GetChannelName then return end
+    Network.UpdateChannel()
+    if Network.channelId then return end
+    local now = GetTime()
+    if now - Network.lastJoin < 15 then return end
+    Network.lastJoin = now
+    JoinChannelByName(WC.CHANNEL)
+    C_Timer.After(2, function() Network.UpdateChannel(); Network.AskWho() end)
+end
+
+function Network.AskWho()
+    Network.SendChannel(WC.VERSION .. "|WHO")
+end
+
+function Network.BroadcastPresence()
+    local name, realm = UnitFullName("player")
+    if not name then return end
+    local level = math.max(1, math.min(999, UnitLevel("player") or 1))
+    local race = (select(2, UnitRace("player")) or "Unknown"):gsub("[^%w]", "")
+    local status = WC.Game and WC.Game.active and "busy" or "online"
+    local faction = UnitFactionGroup("player") or "Neutral"
+    Network.SendChannel(table.concat({ WC.VERSION, "HELLO", tostring(level), race, status, faction }, "|"))
+    Network.lastPresence = GetTime()
+end
+
+function Network.Prune()
+    local now, changed = GetTime(), false
+    for name, info in pairs(Network.players) do
+        if now - info.lastSeen > 75 then Network.players[name] = nil; changed = true end
+    end
+    if changed and WC.UI and WC.UI.RefreshPlayers then WC.UI.RefreshPlayers() end
+end
+
+function Network.Initialize()
+    C_ChatInfo.RegisterAddonMessagePrefix(WC.PREFIX)
+    Network.Join()
+    C_Timer.After(3, function() Network.AskWho(); Network.BroadcastPresence() end)
+    C_Timer.NewTicker(5, function()
+        Network.Join()
+        Network.Prune()
+        if GetTime() - Network.lastPresence >= 25 then Network.BroadcastPresence() end
+    end)
+end
+
+function Network.OnMessage(prefix, message, distribution, sender)
+    if prefix ~= WC.PREFIX or type(message) ~= "string" or #message > 255 or type(sender) ~= "string" then return end
+    if WC.Name(sender) == WC.Name(WC.me) then return end
+    local parts = fields(message)
+    if parts[1] ~= WC.VERSION then return end
+    local action = parts[2]
+    if distribution == "CHANNEL" then
+        if action == "WHO" then
+            C_Timer.After(math.random() * 2, function() Network.BroadcastPresence() end)
+        elseif action == "HELLO" then
+            local level = tonumber(parts[3])
+            local race, status, faction = parts[4], parts[5], parts[6]
+            if level and level >= 1 and level <= 999 and race and race:match("^%w+$") and (status == "online" or status == "busy") and faction == UnitFactionGroup("player") then
+                Network.players[WC.Name(sender)] = { name = sender, level = level, race = race, status = status, lastSeen = GetTime() }
+                if WC.UI and WC.UI.RefreshPlayers then WC.UI.RefreshPlayers() end
+            end
+        end
+    elseif distribution == "WHISPER" then
+        if WC.Game and WC.Game.OnMessage then WC.Game.OnMessage(action, parts, sender) end
+    end
+end
