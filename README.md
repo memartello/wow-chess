@@ -37,10 +37,13 @@ La carpeta lista para copiar es [`WoWChess/`](WoWChess/). Contiene únicamente l
 
 3. Comprobá que exista `Interface/AddOns/WoWChess/WoWChess_Camelot.toc`. El archivo `.toc` debe estar directamente dentro de `WoWChess/`, sin otra carpeta intermedia.
 4. Abrí **WoW: Forever**. En la selección de personajes, entrá a **AddOns** y asegurate de que **WoW Chess** esté habilitado. Para jugar entre dos personas, comprobá que el `## Version` del archivo `.toc` instalado sea el mismo en ambos equipos. Si actualizaste el addon con el juego abierto, reiniciá ambos clientes.
-   El protocolo de la versión `0.3.5-beta` requiere que ambos jugadores la tengan instalada; las versiones anteriores no aparecerán en su lista de jugadores.
+   La versión `0.3.7-beta` usa un protocolo nuevo. Ambos jugadores deben instalarla para encontrarse y jugar.
 5. Para jugar contra otra persona, ambos jugadores deben instalar y activar el addon. Para practicar contra el bot alcanza con una instalación.
 
 Para actualizarlo, ejecutá de nuevo el instalador de tu sistema operativo con la misma ruta si la habías indicado.
+
+Si un reto no llega, escribí `/chess status` en ambos clientes antes de que termine la espera. Muestra el protocolo cargado, el estado de la partida y la edad del último mensaje directo enviado y recibido. `invite=popup` indica que el receptor procesó la invitación; `received=none` indica que el addon no recibió ningún mensaje directo de este protocolo desde que inició. En Forever, los mensajes directos se envían al nombre del personaje sin sufijo de reino; el nombre completo sigue usándose para identificar al rival dentro del protocolo.
+La versión instalada también aparece en la esquina inferior derecha de la pantalla principal.
 
 ## Cómo jugar
 
@@ -50,7 +53,7 @@ Para jugar contra otra persona:
 
 1. Entrá con un personaje. La pantalla principal se abre al ingresar; después podés abrirla o cerrarla con `/chess`, `/wowchess` o el botón **C** junto al minimapa.
 2. Esperá unos segundos a que aparezcan usuarios del addon en **Jugadores disponibles**. Podés pulsar **Actualizar**. La ventana del otro jugador puede estar cerrada.
-3. Pulsá **Retar** junto a un jugador disponible. Si no aparece, escribí `Nombre` o `Nombre-Reino` en **Desafiar por nombre** y presioná Enter. El mensaje directo debe poder llegarle.
+3. Pulsá **Retar** junto a un jugador disponible. Si no aparece, escribí el nombre completo del personaje (nombre y apellido, sin reino) en **Nombre completo** y presioná Enter. El mensaje directo debe poder llegarle.
 4. El otro jugador acepta o rechaza la invitación. Si no responde en 30 segundos, vence. Al aceptar, se sortean las blancas; los clientes reintentan el inicio y confirman la conexión antes de poner en marcha los relojes. El tablero indica quién empieza. Si no logran conectar en 30 segundos, la partida se cancela sin contar un resultado.
 5. En tu turno, hacé clic en una de tus piezas y luego en una casilla marcada. Si un peón promociona, elegí dama, torre, alfil o caballo.
 6. El reloj de cada jugador corre durante su turno. Podés **Ofrecer tablas**, **Rendirte** o volver a la lista sin abandonar la partida; **Volver a partida** la reabre. Quedarse sin tiempo o desconectarse causa derrota.
@@ -83,6 +86,7 @@ Torneos, Aspectos, Historial y crear partida se muestran como vistas preliminare
 Desde la raíz del proyecto:
 
 ```bash
+lua5.1 tests/core_spec.lua
 lua5.1 tests/chess_spec.lua
 lua5.1 tests/game_spec.lua
 lua5.1 tests/bot_spec.lua

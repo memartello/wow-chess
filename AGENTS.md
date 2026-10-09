@@ -6,8 +6,9 @@
 - La primera versión permite una partida de ajedrez en tiempo real por personaje, entre jugadores de la misma facción y ruleset.
 - El modo de práctica enfrenta al personaje con un bot local, sin mensajes de partida ni cambios en las estadísticas contra otros jugadores. Mantener la dificultad separada de las reglas y del transporte para poder ajustarla o reemplazar el bot.
 - Descubrir usuarios conectados del addon que sean alcanzables por su canal. La lista puede ser incompleta debido a las limitaciones de comunicación de la beta.
+- Anunciar el nombre completo del personaje en la presencia y validarlo contra el remitente del canal antes de usarlo como destino de invitaciones.
 - Iniciar partidas por invitación directa; las invitaciones expiran tras 30 segundos.
-- Reintentar la aceptación y el inicio ante pérdidas de mensajes. Confirmar la conexión entre ambos clientes antes de activar los relojes y cancelar un inicio fallido sin registrar victoria ni derrota.
+- Reintentar la invitación, la aceptación y el inicio ante pérdidas de mensajes. Confirmar la conexión entre ambos clientes antes de activar los relojes y cancelar un inicio fallido sin registrar victoria ni derrota.
 - Cada jugador dispone de 10 minutos sin incremento. Una desconexión o pérdida de contacto sostenida causa derrota.
 - Aplicar las reglas del ajedrez, incluidos enroque, captura al paso, promoción, jaque mate y tablas.
 - Sortear las blancas al aceptar el reto y mostrar el nombre de quien comienza junto a un indicador en el tablero.
@@ -21,7 +22,8 @@
 - Ejecutar la búsqueda del bot por tramos breves entre cuadros para que la interfaz siga respondiendo; limitar también el tiempo total de cada jugada.
 - El motor de ajedrez debe ser Lua puro y poder probarse fuera del cliente.
 - Validar remitentes, estados y secuencia de todos los mensajes recibidos; limitar el tráfico y tolerar duplicados.
-- Incluir el nombre completo `Personaje-Reino` en la invitación y la aceptación. Validar el nombre del personaje contra el remitente del evento, conservar ese remitente para autenticar los mensajes siguientes y usar el nombre completo como dirección de respuesta. La beta puede informar un sufijo de reino distinto en el evento.
+- Incluir el nombre completo `Personaje-Reino` en la invitación y la aceptación. Validar el nombre del personaje contra el remitente del evento y conservar ese remitente para autenticar los mensajes siguientes. La beta puede informar un sufijo de reino distinto en el evento.
+- Mantener el nombre completo para identificar al rival en el protocolo, pero dirigir `SendAddonMessage(..., "WHISPER", target)` al nombre del personaje sin sufijo de reino en Forever; el servidor de la beta rechaza el destino `Personaje-Reino`.
 - Usar APIs nativas y no añadir bibliotecas externas sin una necesidad comprobada.
 - Usar eventos, evitar acciones protegidas y restricciones de combate, y usar SavedVariables solo para datos que se decida conservar.
 

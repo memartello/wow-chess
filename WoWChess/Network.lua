@@ -19,7 +19,12 @@ end
 
 function Network.SendWhisper(target, message)
     if not target then return false end
-    return send(message, "WHISPER", target)
+    -- Forever uses a single visible realm for whispers. Its server rejects
+    -- the realm suffix that other WoW clients require for a whisper target.
+    local address = WC.ShortName(target)
+    local ok = send(message, "WHISPER", address)
+    Network.lastSend = { action = message:match("^[^|]+|([^|]+)") or "?", target = address, ok = ok, at = GetTime() }
+    return ok
 end
 
 function Network.SendGame(action, game, payload)
@@ -61,7 +66,7 @@ function Network.BroadcastPresence()
     local race = (select(2, UnitRace("player")) or "Unknown"):gsub("[^%w]", "")
     local status = WC.Game and WC.Game.active and "busy" or "online"
     local faction = UnitFactionGroup("player") or "Neutral"
-    Network.SendChannel(table.concat({ WC.VERSION, "HELLO", tostring(level), race, status, faction }, "|"))
+    Network.SendChannel(table.concat({ WC.VERSION, "HELLO", tostring(level), race, status, faction, WC.me }, "|"))
     Network.lastPresence = GetTime()
 end
 
@@ -85,7 +90,7 @@ function Network.Initialize()
 end
 
 function Network.OnMessage(prefix, message, distribution, sender)
-    if prefix ~= WC.PREFIX or type(message) ~= "string" or #message > 255 or type(sender) ~= "string" then return end
+    if prefix ~= WC.PREFIX or type(message) ~= "string" or #message > 255 or type(sender) ~= "string" or sender == "" then return end
     if distribution == "CHANNEL" and WC.Name(sender) == WC.Name(WC.me) then return end
     local parts = fields(message)
     if parts[1] ~= WC.VERSION then return end
@@ -95,13 +100,18 @@ function Network.OnMessage(prefix, message, distribution, sender)
             C_Timer.After(math.random() * 2, function() Network.BroadcastPresence() end)
         elseif action == "HELLO" then
             local level = tonumber(parts[3])
-            local race, status, faction = parts[4], parts[5], parts[6]
+            local race, status, faction, address = parts[4], parts[5], parts[6], parts[7]
             if level and level >= 1 and level <= 999 and race and race:match("^%w+$") and (status == "online" or status == "busy") and faction == UnitFactionGroup("player") then
-                Network.players[WC.Name(sender)] = { name = sender, level = level, race = race, status = status, lastSeen = GetTime() }
+                if type(address) ~= "string" or #address > 80 or not address:match("^[^|%-]+%-.+$") or
+                    WC.ShortName(address):lower() ~= WC.ShortName(sender):lower() then
+                    address = sender
+                end
+                Network.players[WC.Name(sender)] = { name = address, level = level, race = race, status = status, lastSeen = GetTime() }
                 if WC.UI and WC.UI.RefreshPlayers then WC.UI.RefreshPlayers() end
             end
         end
     elseif distribution == "WHISPER" then
+        Network.lastWhisper = { action = action or "?", sender = sender, at = GetTime() }
         if WC.Game and WC.Game.OnMessage then WC.Game.OnMessage(action, parts, sender) end
     end
 end

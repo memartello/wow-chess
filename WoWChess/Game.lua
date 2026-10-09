@@ -14,9 +14,13 @@ local function sameShort(a, b)
     return WC.Name(a) and WC.Name(b) and WC.ShortName(a):lower() == WC.ShortName(b):lower()
 end
 local function declaredPeer(value, sender)
-    if type(value) ~= "string" or #value > 80 or not value:match("^[^|%-]+%-.+$") then return nil end
+    if type(value) ~= "string" or value == "" or #value > 80 or value:find("|", 1, true) then return nil end
     if not sameShort(value, sender) then return nil end
+    if not value:match("^[^%-]+%-.+$") and sender:match("^[^%-]+%-.+$") then return sender end
     return value
+end
+local function markInvite(reason)
+    Game.lastInvite = { reason = reason, at = GetTime() }
 end
 local function newId() return tostring(time()) .. tostring(math.random(100000, 999999)) end
 local function validId(value) return type(value) == "string" and #value >= 6 and #value <= 32 and value:match("^%d+$") end
@@ -139,8 +143,9 @@ function Game.Challenge(target)
     if target == "" then return false, "Escribí el nombre del personaje." end
     if same(target, WC.me) then return false, "No podés desafiarte a vos mismo." end
     if Game.active or Game.incoming or Game.outgoing then return false, "Ya tenés una partida o invitación pendiente." end
-    local invitation = { id = newId(), opponent = target, expires = GetTime() + WC.INVITE_SECONDS }
-    if not WC.Network.SendWhisper(target, WC.VERSION .. "|INV|" .. invitation.id .. "|" .. (UnitFactionGroup("player") or "Neutral") .. "|" .. WC.me) then
+    local invitation = { id = newId(), opponent = target, expires = GetTime() + WC.INVITE_SECONDS, retryAt = GetTime() + 2 }
+    invitation.message = WC.VERSION .. "|INV|" .. invitation.id .. "|" .. (UnitFactionGroup("player") or "Neutral") .. "|" .. WC.me
+    if not WC.Network.SendWhisper(target, invitation.message) then
         return false, "No se pudo enviar el reto. Revisá el nombre y la conexión."
     end
     Game.outgoing = invitation
@@ -231,9 +236,11 @@ function Game.Tick()
         if now >= outgoing.expires then
             Game.outgoing = nil
             WC.UI.SetStatus(outgoing.startMessage and "No se pudo conectar con el rival." or "El reto venció sin respuesta.")
-        elseif outgoing.startMessage and now >= outgoing.retryAt then
+        elseif now >= outgoing.retryAt then
             outgoing.retryAt = now + 2
-            if WC.Network.SendWhisper(outgoing.opponent, outgoing.startMessage) then
+            if not outgoing.startMessage then
+                WC.Network.SendWhisper(outgoing.opponent, outgoing.message)
+            elseif WC.Network.SendWhisper(outgoing.opponent, outgoing.startMessage) then
                 start(outgoing.opponent, outgoing.peerSender, outgoing.gameId, outgoing.white, outgoing.id, outgoing.startMessage)
             end
         end
@@ -303,20 +310,24 @@ function Game.OnMessage(action, parts, sender)
     end
     if action == "INV" then
         local peer = declaredPeer(parts[5], sender)
-        if not peer then return end
+        if not peer then markInvite("invalid-name"); return end
         if parts[4] ~= UnitFactionGroup("player") then
+            markInvite("different-faction")
             WC.Network.SendWhisper(peer, WC.VERSION .. "|DEC|" .. id .. "|faction")
             return
         end
         if Game.active or Game.outgoing or (Game.incoming and not (Game.incoming.id == id and
             WC.Name(Game.incoming.opponent) == WC.Name(peer) and same(Game.incoming.peerSender, sender))) then
+            markInvite("busy")
             WC.Network.SendWhisper(peer, WC.VERSION .. "|DEC|" .. id .. "|busy")
             return
         end
         if Game.incoming and Game.incoming.id == id then
+            markInvite(Game.incoming.accepted and "accepted-retry" or "popup")
             if Game.incoming.accepted then WC.Network.SendWhisper(peer, WC.VERSION .. "|ACC|" .. id .. "|" .. WC.me) end
             return
         end
+        markInvite("popup")
         Game.incoming = { id = id, opponent = peer, peerSender = sender, expires = GetTime() + WC.INVITE_SECONDS }
         WC.UI.ShowInvite(sender)
         return

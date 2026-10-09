@@ -11,12 +11,12 @@ local function fields(message)
     return parts
 end
 
-local function scenario(failAccept, dropStart, shortChallenge, shortSenders, senderRealmAlias)
+local function scenario(failAccept, dropStart, shortChallenge, shortSenders, senderRealmAlias, dropInvite)
     now = 100
     local clients, queue = {}, {}
     local function client(name)
         local WC = {
-            VERSION = "4", GAME_SECONDS = 600, INVITE_SECONDS = 30,
+            VERSION = "5", GAME_SECONDS = 600, INVITE_SECONDS = 30,
             me = name, db = { stats = { wins = 0, losses = 0, draws = 0 } },
             Bot = { Stop = function() end },
             ShortName = function(value) return value:match("^[^%-]+") end,
@@ -38,6 +38,7 @@ local function scenario(failAccept, dropStart, shortChallenge, shortSenders, sen
             BroadcastPresence = function() end,
             SendWhisper = function(target, message)
                 local action = fields(message)[2]
+                if action == "INV" and dropInvite then dropInvite = false; return true end
                 if action == "ACC" and failAccept then failAccept = false; return false end
                 if action == "START" and dropStart then
                     if dropStart ~= "all" then dropStart = false end
@@ -74,9 +75,14 @@ local function scenario(failAccept, dropStart, shortChallenge, shortSenders, sen
     end
     assert(alice.Game.Challenge(shortChallenge and "Bob" or bob.me))
     flush()
+    if not bob.Game.incoming then
+        now = now + 2.1
+        alice.Game.Tick()
+        flush()
+    end
     assert(bob.Game.incoming and bob.inviteShown, "invitation popup delivered")
     if not shortChallenge then
-        alice.Game.OnMessage("ACC", { "4", "ACC", alice.Game.outgoing.id, "Bob-OtherRealm" }, "Bob-OtherRealm")
+        alice.Game.OnMessage("ACC", { "5", "ACC", alice.Game.outgoing.id, "Bob-OtherRealm" }, "Bob-OtherRealm")
         assert(not alice.Game.outgoing.startMessage, "an explicit realm rejects a different sender")
     end
     bob.Game.AcceptInvite()
@@ -113,5 +119,6 @@ scenario(false, false, true, true)
 scenario(false, false, false, true)
 scenario(true, true, true, true)
 scenario(false, false, false, false, true)
+scenario(false, false, false, false, false, true)
 
 print("handshake_spec: OK")

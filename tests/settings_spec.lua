@@ -31,6 +31,7 @@ CreateFrame = function() return widget() end
 
 local WC = {
     assetRoot = "Interface\\AddOns\\WoWChess\\assets\\",
+    ADDON_VERSION = "test-build",
     me = "Alice-Realm",
     db = { settings = {}, stats = { wins = 0, losses = 0, draws = 0 } },
     Network = { players = {}, AskWho = function() end },
@@ -44,6 +45,7 @@ assert(loadfile("WoWChess/UI.lua"))("WoWChess", WC)
 
 assert(WC.Language() == "en", "English client locale")
 WC.UI.Initialize()
+assert(WC.UI.versionLabel.text == "vtest-build", "home screen displays the addon version")
 WC.UI.SetMainSection("options")
 assert(WC.UI.optionsContent:IsShown() and not WC.UI.homeContent:IsShown(), "options page")
 WC.UI.boardButtons.classic.scripts.OnClick()
