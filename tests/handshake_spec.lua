@@ -11,12 +11,12 @@ local function fields(message)
     return parts
 end
 
-local function scenario(failAccept, dropStart, shortChallenge, shortSenders, senderRealmAlias, dropInvite)
+local function scenario(failAccept, dropStart, shortChallenge, shortSenders, senderRealmAlias, dropInvite, wrongClaim)
     now = 100
     local clients, queue = {}, {}
     local function client(name)
         local WC = {
-            VERSION = "5", GAME_SECONDS = 600, INVITE_SECONDS = 30,
+            VERSION = "6", GAME_SECONDS = 600, INVITE_SECONDS = 30,
             me = name, db = { stats = { wins = 0, losses = 0, draws = 0 } },
             Bot = { Stop = function() end },
             ShortName = function(value) return value:match("^[^%-]+") end,
@@ -70,6 +70,8 @@ local function scenario(failAccept, dropStart, shortChallenge, shortSenders, sen
             local sender = message.sender
             if shortSenders then sender = sender:match("^[^%-]+") end
             if senderRealmAlias then sender = sender:match("^[^%-]+") .. "-TransportRealm" end
+            if wrongClaim and parts[2] == "INV" then parts[5] = "Wrong Character-Realm" end
+            if wrongClaim and parts[2] == "ACC" then parts[4] = "Wrong Character-Realm" end
             target.Game.OnMessage(parts[2], parts, sender)
         end
     end
@@ -82,7 +84,7 @@ local function scenario(failAccept, dropStart, shortChallenge, shortSenders, sen
     end
     assert(bob.Game.incoming and bob.inviteShown, "invitation popup delivered")
     if not shortChallenge then
-        alice.Game.OnMessage("ACC", { "5", "ACC", alice.Game.outgoing.id, "Bob-OtherRealm" }, "Bob-OtherRealm")
+        alice.Game.OnMessage("ACC", { "6", "ACC", alice.Game.outgoing.id, "Bob-OtherRealm" }, "Bob-OtherRealm")
         assert(not alice.Game.outgoing.startMessage, "an explicit realm rejects a different sender")
     end
     bob.Game.AcceptInvite()
@@ -120,5 +122,6 @@ scenario(false, false, false, true)
 scenario(true, true, true, true)
 scenario(false, false, false, false, true)
 scenario(false, false, false, false, false, true)
+scenario(false, false, false, false, false, false, true)
 
 print("handshake_spec: OK")

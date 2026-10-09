@@ -37,12 +37,20 @@ La carpeta lista para copiar es [`WoWChess/`](WoWChess/). Contiene únicamente l
 
 3. Comprobá que exista `Interface/AddOns/WoWChess/WoWChess_Camelot.toc`. El archivo `.toc` debe estar directamente dentro de `WoWChess/`, sin otra carpeta intermedia.
 4. Abrí **WoW: Forever**. En la selección de personajes, entrá a **AddOns** y asegurate de que **WoW Chess** esté habilitado. Para jugar entre dos personas, comprobá que el `## Version` del archivo `.toc` instalado sea el mismo en ambos equipos. Si actualizaste el addon con el juego abierto, reiniciá ambos clientes.
-   La versión `0.3.7-beta` usa un protocolo nuevo. Ambos jugadores deben instalarla para encontrarse y jugar.
+   Para jugar entre dos personas, ambos jugadores deben instalar `0.3.9-beta`; esta versión usa el protocolo 6 y no se conecta con las versiones anteriores.
 5. Para jugar contra otra persona, ambos jugadores deben instalar y activar el addon. Para practicar contra el bot alcanza con una instalación.
 
 Para actualizarlo, ejecutá de nuevo el instalador de tu sistema operativo con la misma ruta si la habías indicado.
 
 Si un reto no llega, escribí `/chess status` en ambos clientes antes de que termine la espera. Muestra el protocolo cargado, el estado de la partida y la edad del último mensaje directo enviado y recibido. `invite=popup` indica que el receptor procesó la invitación; `received=none` indica que el addon no recibió ningún mensaje directo de este protocolo desde que inició. En Forever, los mensajes directos se envían al nombre del personaje sin sufijo de reino; el nombre completo sigue usándose para identificar al rival dentro del protocolo.
+
+Para investigar un reto fallido con `0.3.9-beta` en **ambos** clientes:
+
+1. Reiniciá ambos clientes y ejecutá `/chess log clear` en cada uno.
+2. Enviá un reto y esperá unos segundos. Si no aparece el diálogo, ejecutá `/chess log` en cada cliente y compará las líneas con el mismo número después de `INV#`.
+3. Compartí ambos registros. Podés ocultar los nombres de personajes, pero conservá los seis dígitos de `INV#` para relacionar las líneas. `SEND INV ... accepted` solo confirma que la API aceptó el envío; `RECV INV` confirma que llegó al addon del receptor. Después aparecen `INV popup`, `INV invalid-name`, `INV different-faction` o `INV busy` para mostrar qué hizo el receptor. `INV name-mismatch` registra que el nombre declarado no coincidió con el remitente informado por WoW y que el addon usó a ese remitente para continuar.
+
+`/chess log all` muestra hasta 80 eventos recientes; `/chess debug` activa o desactiva la impresión en vivo. El registro solo conserva metadatos en memoria (acción, destinatario/remitente, los últimos seis dígitos del ID y el resultado de la API), no el contenido completo de los mensajes, y se pierde al reiniciar o usar `/reload`.
 La versión instalada también aparece en la esquina inferior derecha de la pantalla principal.
 
 ## Cómo jugar

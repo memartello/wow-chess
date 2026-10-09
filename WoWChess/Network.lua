@@ -2,6 +2,10 @@ local _, WC = ...
 local Network = { players = {}, channelId = nil, lastJoin = -100, lastPresence = 0 }
 WC.Network = Network
 
+local function trace(kind, detail)
+    if WC.Log then WC.Log(kind, detail) end
+end
+
 local function fields(message)
     local result = {}
     for part in (message .. "|"):gmatch("(.-)|") do result[#result + 1] = part end
@@ -9,12 +13,12 @@ local function fields(message)
 end
 
 local function send(message, chatType, target)
-    if not C_ChatInfo or not C_ChatInfo.SendAddonMessage then return false end
+    if not C_ChatInfo or not C_ChatInfo.SendAddonMessage then return false, "API unavailable" end
     local ok, first, second = pcall(C_ChatInfo.SendAddonMessage, WC.PREFIX, message, chatType, target)
-    if not ok then return false end
+    if not ok then return false, "error: " .. tostring(first) end
     local result = first
     if second ~= nil then result = second end
-    return result == 0 or result == true or result == nil
+    return result == 0 or result == true or result == nil, tostring(result)
 end
 
 function Network.SendWhisper(target, message)
@@ -22,8 +26,10 @@ function Network.SendWhisper(target, message)
     -- Forever uses a single visible realm for whispers. Its server rejects
     -- the realm suffix that other WoW clients require for a whisper target.
     local address = WC.ShortName(target)
-    local ok = send(message, "WHISPER", address)
+    local ok, result = send(message, "WHISPER", address)
     Network.lastSend = { action = message:match("^[^|]+|([^|]+)") or "?", target = address, ok = ok, at = GetTime() }
+    local action, id = message:match("^[^|]+|([^|]+)|([^|]+)")
+    trace("SEND", string.format("%s#%s to=%s api=%s %s", action or "?", id and id:sub(-6) or "-", address, result, ok and "accepted" or "failed"))
     return ok
 end
 
@@ -62,6 +68,7 @@ end
 function Network.BroadcastPresence()
     local name, realm = UnitFullName("player")
     if not name then return end
+    WC.RefreshPlayerName()
     local level = math.max(1, math.min(999, UnitLevel("player") or 1))
     local race = (select(2, UnitRace("player")) or "Unknown"):gsub("[^%w]", "")
     local status = WC.Game and WC.Game.active and "busy" or "online"
@@ -79,7 +86,8 @@ function Network.Prune()
 end
 
 function Network.Initialize()
-    C_ChatInfo.RegisterAddonMessagePrefix(WC.PREFIX)
+    local registered = C_ChatInfo.RegisterAddonMessagePrefix(WC.PREFIX)
+    trace("INIT", "prefix=" .. WC.PREFIX .. " registration=" .. tostring(registered))
     Network.Join()
     C_Timer.After(3, function() Network.AskWho(); Network.BroadcastPresence() end)
     C_Timer.NewTicker(5, function()
@@ -90,10 +98,17 @@ function Network.Initialize()
 end
 
 function Network.OnMessage(prefix, message, distribution, sender)
-    if prefix ~= WC.PREFIX or type(message) ~= "string" or #message > 255 or type(sender) ~= "string" or sender == "" then return end
+    if prefix ~= WC.PREFIX then
+        if type(prefix) == "string" and prefix:match("^WoWChess%d+$") then trace("DROP", "other prefix=" .. prefix) end
+        return
+    end
+    if type(message) ~= "string" or #message > 255 or type(sender) ~= "string" or sender == "" then
+        trace("DROP", "invalid addon event")
+        return
+    end
     if distribution == "CHANNEL" and WC.Name(sender) == WC.Name(WC.me) then return end
     local parts = fields(message)
-    if parts[1] ~= WC.VERSION then return end
+    if parts[1] ~= WC.VERSION then trace("DROP", "wire version=" .. tostring(parts[1])); return end
     local action = parts[2]
     if distribution == "CHANNEL" then
         if action == "WHO" then
@@ -107,11 +122,15 @@ function Network.OnMessage(prefix, message, distribution, sender)
                     address = sender
                 end
                 Network.players[WC.Name(sender)] = { name = address, level = level, race = race, status = status, lastSeen = GetTime() }
+                trace("PEER", "seen=" .. sender .. " address=" .. address .. " status=" .. status)
                 if WC.UI and WC.UI.RefreshPlayers then WC.UI.RefreshPlayers() end
             end
         end
     elseif distribution == "WHISPER" then
         Network.lastWhisper = { action = action or "?", sender = sender, at = GetTime() }
+        trace("RECV", string.format("%s#%s from=%s", action or "?", parts[3] and parts[3]:sub(-6) or "-", sender))
         if WC.Game and WC.Game.OnMessage then WC.Game.OnMessage(action, parts, sender) end
+    elseif action == "INV" or action == "ACC" or action == "START" then
+        trace("DROP", tostring(action) .. " on " .. tostring(distribution))
     end
 end

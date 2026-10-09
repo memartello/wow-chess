@@ -2,7 +2,7 @@
 ## Title: WoW Chess
 ## Notes: Ajedrez entre personajes y práctica contra bot en WoW: Forever
 ## Author: WoW Chess contributors
-## Version: 0.3.7-beta
+## Version: 0.3.9-beta
 ## SavedVariables: WoWChessDB
 
 Core.lua

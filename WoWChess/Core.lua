@@ -3,15 +3,36 @@ _G.WoWChess = WC
 
 WC.addonName = addonName
 WC.assetRoot = "Interface\\AddOns\\" .. addonName .. "\\assets\\"
-WC.ADDON_VERSION = "0.3.7-beta"
-WC.VERSION = "5"
-WC.PREFIX = "WoWChess5"
+WC.ADDON_VERSION = "0.3.9-beta"
+WC.VERSION = "6"
+WC.PREFIX = "WoWChess6"
 WC.CHANNEL = "WoWChess"
 WC.INVITE_SECONDS = 30
 WC.GAME_SECONDS = 600
 
 function WC.Print(message)
     DEFAULT_CHAT_FRAME:AddMessage("|cffffc44dWoW Chess:|r " .. tostring(message))
+end
+
+WC.logEntries = {}
+WC.logLive = false
+local LOG_LIMIT = 80
+
+function WC.Log(kind, detail)
+    local entry = { at = GetTime(), text = tostring(kind) .. " " .. tostring(detail or "") }
+    local entries = WC.logEntries
+    entries[#entries + 1] = entry
+    if #entries > LOG_LIMIT then table.remove(entries, 1) end
+    if WC.logLive then WC.Print(string.format("[%.1f] %s", entry.at, entry.text)) end
+end
+
+function WC.PrintLog(all)
+    local entries = WC.logEntries
+    local first = math.max(1, #entries - (all and LOG_LIMIT or 40) + 1)
+    WC.Print(string.format("v%s protocol=%s: %d log entries; showing %d", WC.ADDON_VERSION, WC.VERSION, #entries, #entries - first + 1))
+    for i = first, #entries do
+        WC.Print(string.format("[%.1f] %s", entries[i].at, entries[i].text))
+    end
 end
 
 local function normalizedRealm(value)
@@ -42,8 +63,14 @@ end
 
 function WC.PlayerName()
     local name, realm = UnitFullName("player")
+    if not name or name == "" then return nil end
     realm = normalizedRealm(realm) or currentRealm()
     return realm and (name .. "-" .. realm) or name
+end
+
+function WC.RefreshPlayerName()
+    WC.me = WC.PlayerName() or WC.me
+    return WC.me
 end
 
 WC.events = CreateFrame("Frame")
@@ -65,7 +92,7 @@ WC.events:SetScript("OnEvent", function(_, event, ...)
             WC.db.stats[key] = tonumber(WC.db.stats[key]) or 0
         end
     elseif event == "PLAYER_LOGIN" then
-        WC.me = WC.PlayerName()
+        WC.RefreshPlayerName()
         WC.Network.Initialize()
         WC.Game.Initialize()
         WC.UI.Initialize()
@@ -96,7 +123,15 @@ local function statusEvent(event)
 end
 
 SlashCmdList.WOWCHESS = function(command)
-    if type(command) == "string" and command:match("^%s*status%s*$") then
+    command = type(command) == "string" and command:match("^%s*(.-)%s*$"):lower() or ""
+    if command == "log" or command == "log all" then WC.PrintLog(command == "log all"); return end
+    if command == "log clear" then WC.logEntries = {}; WC.Print("Log cleared."); return end
+    if command == "debug" then
+        WC.logLive = not WC.logLive
+        WC.Print("Live log " .. (WC.logLive and "on" or "off") .. ".")
+        return
+    end
+    if command == "status" then
         local game, network = WC.Game, WC.Network
         local state = "idle"
         if game.active then state = game.active.connected and "playing" or "connecting"

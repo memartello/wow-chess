@@ -22,7 +22,8 @@
 - Ejecutar la búsqueda del bot por tramos breves entre cuadros para que la interfaz siga respondiendo; limitar también el tiempo total de cada jugada.
 - El motor de ajedrez debe ser Lua puro y poder probarse fuera del cliente.
 - Validar remitentes, estados y secuencia de todos los mensajes recibidos; limitar el tráfico y tolerar duplicados.
-- Incluir el nombre completo `Personaje-Reino` en la invitación y la aceptación. Validar el nombre del personaje contra el remitente del evento y conservar ese remitente para autenticar los mensajes siguientes. La beta puede informar un sufijo de reino distinto en el evento.
+- Mantener un registro de diagnóstico acotado en memoria para envíos, recepciones, descartes y transiciones del inicio. No guardar el contenido completo de los mensajes ni asumir que el éxito de la API confirma la entrega al otro cliente.
+- Incluir el nombre completo `Personaje-Reino` en la invitación y la aceptación. Usar el remitente del evento como identidad autorizada para el intercambio; si el nombre declarado no coincide, registrar la diferencia y responder al remitente, sin aceptar la identidad declarada. Conservar el remitente para autenticar los mensajes siguientes. La beta puede informar un sufijo de reino distinto en el evento.
 - Mantener el nombre completo para identificar al rival en el protocolo, pero dirigir `SendAddonMessage(..., "WHISPER", target)` al nombre del personaje sin sufijo de reino en Forever; el servidor de la beta rechaza el destino `Personaje-Reino`.
 - Usar APIs nativas y no añadir bibliotecas externas sin una necesidad comprobada.
 - Usar eventos, evitar acciones protegidas y restricciones de combate, y usar SavedVariables solo para datos que se decida conservar.

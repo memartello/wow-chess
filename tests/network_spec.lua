@@ -1,6 +1,8 @@
 local result1, result2, lastTarget = 0, nil, nil
 GetTime = function() return 100 end
 local WC = { PREFIX = "WoWChess1", CHANNEL = "WoWChess", VERSION = "1" }
+local logs = {}
+WC.Log = function(kind, detail) logs[#logs + 1] = kind .. " " .. detail end
 WC.me = "Alice-Realm"
 WC.Name = function(name) return name and (name:find("-", 1, true) and name or name .. "-Realm"):lower() end
 WC.ShortName = function(name) return name:match("^[^%-]+") end
@@ -23,6 +25,7 @@ result1, result2 = nil, nil
 assert(WC.Network.SendWhisper("Bob-Realm", "1|ACC|123456"), "legacy no-result success")
 result1, result2 = 3, nil
 assert(not WC.Network.SendWhisper("Bob-Realm", "1|ACC|123456"), "throttled send")
+assert(logs[#logs]:find("api=3 failed", 1, true), "trace records the API rejection")
 result1, result2 = nil, 3
 assert(not WC.Network.SendChannel("1|WHO"), "second return error")
 
@@ -30,6 +33,7 @@ local received = 0
 WC.Game = { OnMessage = function() received = received + 1 end }
 WC.Network.OnMessage(WC.PREFIX, "1|INV|123456|Alliance|Alice-OtherRealm", "WHISPER", "Alice")
 assert(received == 1, "a direct invitation from a same-named connected-realm player reaches the game")
+assert(logs[#logs]:find("RECV INV#123456", 1, true), "trace records incoming invitations")
 
 WC.Network.OnMessage(WC.PREFIX, "1|HELLO|60|Orc|online|Alliance|Bob-ActualRealm", "CHANNEL", "Bob-TransportRealm")
 assert(WC.Network.players["bob-transportrealm"].name == "Bob-ActualRealm", "player list uses the advertised reply address")
