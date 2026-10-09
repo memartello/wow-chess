@@ -86,7 +86,7 @@ end
 
 function Network.OnMessage(prefix, message, distribution, sender)
     if prefix ~= WC.PREFIX or type(message) ~= "string" or #message > 255 or type(sender) ~= "string" then return end
-    if WC.Name(sender) == WC.Name(WC.me) then return end
+    if distribution == "CHANNEL" and WC.Name(sender) == WC.Name(WC.me) then return end
     local parts = fields(message)
     if parts[1] ~= WC.VERSION then return end
     local action = parts[2]

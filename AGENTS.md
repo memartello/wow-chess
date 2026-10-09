@@ -21,7 +21,7 @@
 - Ejecutar la búsqueda del bot por tramos breves entre cuadros para que la interfaz siga respondiendo; limitar también el tiempo total de cada jugada.
 - El motor de ajedrez debe ser Lua puro y poder probarse fuera del cliente.
 - Validar remitentes, estados y secuencia de todos los mensajes recibidos; limitar el tráfico y tolerar duplicados.
-- Incluir el nombre completo `Personaje-Reino` en la invitación y la aceptación, validarlo contra el remitente del evento y usarlo para los mensajes directos posteriores.
+- Incluir el nombre completo `Personaje-Reino` en la invitación y la aceptación. Validar el nombre del personaje contra el remitente del evento, conservar ese remitente para autenticar los mensajes siguientes y usar el nombre completo como dirección de respuesta. La beta puede informar un sufijo de reino distinto en el evento.
 - Usar APIs nativas y no añadir bibliotecas externas sin una necesidad comprobada.
 - Usar eventos, evitar acciones protegidas y restricciones de combate, y usar SavedVariables solo para datos que se decida conservar.
 

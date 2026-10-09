@@ -11,12 +11,12 @@ local function fields(message)
     return parts
 end
 
-local function scenario(failAccept, dropStart, shortChallenge, shortSenders)
+local function scenario(failAccept, dropStart, shortChallenge, shortSenders, senderRealmAlias)
     now = 100
     local clients, queue = {}, {}
     local function client(name)
         local WC = {
-            VERSION = "3", GAME_SECONDS = 600, INVITE_SECONDS = 30,
+            VERSION = "4", GAME_SECONDS = 600, INVITE_SECONDS = 30,
             me = name, db = { stats = { wins = 0, losses = 0, draws = 0 } },
             Bot = { Stop = function() end },
             ShortName = function(value) return value:match("^[^%-]+") end,
@@ -28,7 +28,7 @@ local function scenario(failAccept, dropStart, shortChallenge, shortSenders)
         }
         WC.UI = {
             SetStatus = function(message) WC.status = message end,
-            ShowInvite = function() end, HideInvite = function() end,
+            ShowInvite = function() WC.inviteShown = true end, HideInvite = function() end,
             ShowGame = function() WC.shown = true end,
             ShowMain = function() WC.shown = false end,
             RefreshGame = function() end, RefreshClocks = function() end,
@@ -66,14 +66,17 @@ local function scenario(failAccept, dropStart, shortChallenge, shortSenders)
             local target = clients[message.target] or (message.target == "Bob" and bob)
             assert(target, "message target exists")
             local parts = fields(message.message)
-            target.Game.OnMessage(parts[2], parts, shortSenders and message.sender:match("^[^%-]+") or message.sender)
+            local sender = message.sender
+            if shortSenders then sender = sender:match("^[^%-]+") end
+            if senderRealmAlias then sender = sender:match("^[^%-]+") .. "-TransportRealm" end
+            target.Game.OnMessage(parts[2], parts, sender)
         end
     end
     assert(alice.Game.Challenge(shortChallenge and "Bob" or bob.me))
     flush()
-    assert(bob.Game.incoming, "invitation delivered")
+    assert(bob.Game.incoming and bob.inviteShown, "invitation popup delivered")
     if not shortChallenge then
-        alice.Game.OnMessage("ACC", { "3", "ACC", alice.Game.outgoing.id, "Bob-OtherRealm" }, "Bob-OtherRealm")
+        alice.Game.OnMessage("ACC", { "4", "ACC", alice.Game.outgoing.id, "Bob-OtherRealm" }, "Bob-OtherRealm")
         assert(not alice.Game.outgoing.startMessage, "an explicit realm rejects a different sender")
     end
     bob.Game.AcceptInvite()
@@ -109,5 +112,6 @@ scenario(false, false, true)
 scenario(false, false, true, true)
 scenario(false, false, false, true)
 scenario(true, true, true, true)
+scenario(false, false, false, false, true)
 
 print("handshake_spec: OK")
