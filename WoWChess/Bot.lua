@@ -135,12 +135,18 @@ function Bot.Stop()
     if Bot.frame then Bot.frame:SetScript("OnUpdate", nil) end
 end
 
-function Bot.Start(state, callback)
+function Bot.Start(state, callback, difficulty)
     Bot.Stop()
     local fallback = Chess.AllLegalMoves(state)[1]
     if not fallback then callback(nil); return end
     if not Bot.frame then Bot.frame = CreateFrame("Frame") end
-    local job = { co = coroutine.create(function() return Bot.Choose(state, 4, 4) end), callback = callback }
+    local settings = {
+        easy = { depth = 2, seconds = 1 },
+        intermediate = { depth = 4, seconds = 4 },
+        hard = { depth = 5, seconds = 6 },
+    }
+    local level = settings[difficulty] or settings.intermediate
+    local job = { co = coroutine.create(function() return Bot.Choose(state, level.depth, level.seconds) end), callback = callback }
     Bot.job = job
     Bot.frame:SetScript("OnUpdate", function()
         if Bot.job ~= job then return end

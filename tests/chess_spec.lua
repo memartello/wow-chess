@@ -30,6 +30,9 @@ state = play(state, "e2", "e4")
 state = play(state, "e7", "e5")
 state = play(state, "g1", "f3")
 assert(state.board[chess.Square("f3")] == "wN")
+assert(#state.moveDetails == #state.moves and state.moveDetails[1].from == chess.Square("e2") and
+    state.moveDetails[1].to == chess.Square("e4") and state.moveDetails[2].from == chess.Square("e7") and
+    state.moveDetails[2].to == chess.Square("e5"), "history retains each move's squares")
 
 state = chess.New()
 state = play(state, "f2", "f3")
@@ -45,6 +48,7 @@ state = play(state, "e4", "e5")
 state = play(state, "d7", "d5")
 state = play(state, "e5", "d6")
 assert(state.board[chess.Square("d6")] == "wP" and state.board[chess.Square("d5")] == nil, "al paso")
+assert(state.moveDetails[#state.moveDetails].captured == "bP", "en passant records the lost pawn")
 
 state = seed(empty("w"))
 state.board[chess.Square("e1")] = "wK"

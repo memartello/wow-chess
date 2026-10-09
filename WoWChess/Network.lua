@@ -106,7 +106,7 @@ function Network.OnMessage(prefix, message, distribution, sender)
         trace("DROP", "invalid addon event")
         return
     end
-    if distribution == "CHANNEL" and WC.Name(sender) == WC.Name(WC.me) then return end
+    if distribution == "CHANNEL" and WC.IsOwnPresence(sender) then return end
     local parts = fields(message)
     if parts[1] ~= WC.VERSION then trace("DROP", "wire version=" .. tostring(parts[1])); return end
     local action = parts[2]
@@ -117,6 +117,10 @@ function Network.OnMessage(prefix, message, distribution, sender)
             local level = tonumber(parts[3])
             local race, status, faction, address = parts[4], parts[5], parts[6], parts[7]
             if level and level >= 1 and level <= 999 and race and race:match("^%w+$") and (status == "online" or status == "busy") and faction == UnitFactionGroup("player") then
+                if WC.IsOwnPresence(address) then
+                    trace("DROP", "own presence")
+                    return
+                end
                 if type(address) ~= "string" or #address > 80 or not address:match("^[^|%-]+%-.+$") or
                     WC.ShortName(address):lower() ~= WC.ShortName(sender):lower() then
                     address = sender

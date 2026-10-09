@@ -85,19 +85,21 @@ local function startBotTurn(game)
     local id, seq = game.id, game.seq
     WC.Bot.Start(game.state, function(move)
         if Game.active and Game.active.id == id and Game.active.seq == seq then Game.BotMove(move) end
-    end)
+    end, game.difficulty)
 end
 
-function Game.StartBot()
+function Game.StartBot(difficulty, color)
     if Game.active or Game.incoming or Game.outgoing then
         return false, "Ya tenés una partida o invitación pendiente."
     end
-    local color = math.random(2) == 1 and "w" or "b"
+    local validDifficulties = { easy = true, intermediate = true, hard = true }
+    difficulty = validDifficulties[difficulty] and difficulty or "intermediate"
+    if color ~= "w" and color ~= "b" then color = math.random(2) == 1 and "w" or "b" end
     if WC.RefreshPlayerName then WC.RefreshPlayerName() end
-    local opponent = "Bot intermedio"
+    local opponent = ({ easy = "Bot fácil", intermediate = "Bot intermedio", hard = "Bot difícil" })[difficulty]
     Game.lastResult = nil
     Game.active = {
-        id = newId(), mode = "bot", opponent = opponent,
+        id = newId(), mode = "bot", opponent = opponent, difficulty = difficulty,
         white = color == "w" and WC.me or opponent, color = color,
         state = WC.Chess.New(), remaining = { w = WC.GAME_SECONDS, b = WC.GAME_SECONDS },
         turnStarted = GetTime(), seq = 0,

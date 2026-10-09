@@ -24,13 +24,15 @@ local function copy(state, light)
     local result = {
         board = {}, turn = state.turn, rights = {}, ep = state.ep,
         halfmove = state.halfmove, fullmove = state.fullmove,
-        counts = light and state.counts or {}, moves = light and state.moves or {}, outcome = state.outcome,
+        counts = light and state.counts or {}, moves = light and state.moves or {},
+        moveDetails = light and state.moveDetails or {}, outcome = state.outcome,
     }
     for i = 1, 64 do result.board[i] = state.board[i] end
     for key, value in pairs(state.rights) do result.rights[key] = value end
     if not light then
         for key, value in pairs(state.counts) do result.counts[key] = value end
         for i, value in ipairs(state.moves) do result.moves[i] = value end
+        for i, value in ipairs(state.moveDetails or {}) do result.moveDetails[i] = value end
     end
     return result
 end
@@ -46,7 +48,7 @@ function Chess.Key(state)
 end
 
 function Chess.New()
-    local state = { board = {}, turn = "w", rights = { wK = true, wQ = true, bK = true, bQ = true }, halfmove = 0, fullmove = 1, counts = {}, moves = {} }
+    local state = { board = {}, turn = "w", rights = { wK = true, wQ = true, bK = true, bQ = true }, halfmove = 0, fullmove = 1, counts = {}, moves = {}, moveDetails = {} }
     local back = { "R", "N", "B", "Q", "K", "B", "N", "R" }
     for file = 1, 8 do
         state.board[index(file, 1)] = "w" .. back[file]
@@ -324,6 +326,7 @@ function Chess.Move(state, from, to, promotion)
     local nextState, captured = applyUnchecked(state, selected)
     local notation = san(state, selected, nextState, captured)
     nextState.moves[#nextState.moves + 1] = notation
+    nextState.moveDetails[#nextState.moveDetails + 1] = { from = selected.from, to = selected.to, captured = captured }
     local key = Chess.Key(nextState)
     nextState.counts[key] = (nextState.counts[key] or 0) + 1
     nextState.outcome = Chess.Result(nextState)

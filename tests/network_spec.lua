@@ -6,6 +6,7 @@ WC.Log = function(kind, detail) logs[#logs + 1] = kind .. " " .. detail end
 WC.me = "Alice-Realm"
 WC.Name = function(name) return name and (name:find("-", 1, true) and name or name .. "-Realm"):lower() end
 WC.ShortName = function(name) return name:match("^[^%-]+") end
+assert(loadfile("WoWChess/Identity.lua"))("WoWChess", WC)
 UnitFactionGroup = function() return "Alliance" end
 C_ChatInfo = {
     SendAddonMessage = function(_, _, _, target) lastTarget = target; return result1, result2 end,
@@ -39,5 +40,16 @@ WC.Network.OnMessage(WC.PREFIX, "1|HELLO|60|Orc|online|Alliance|Bob-ActualRealm"
 assert(WC.Network.players["bob-transportrealm"].name == "Bob-ActualRealm", "player list uses the advertised reply address")
 WC.Network.OnMessage(WC.PREFIX, "1|HELLO|60|Orc|online|Alliance|Mallory-OtherRealm", "CHANNEL", "Bob-TransportRealm")
 assert(WC.Network.players["bob-transportrealm"].name == "Bob-TransportRealm", "reject an address with a different character name")
+WC.Network.OnMessage(WC.PREFIX, "1|HELLO|60|Human|online|Alliance|Alice-Realm", "CHANNEL", "Alice-TransportRealm")
+assert(WC.Network.players["alice-transportrealm"] == nil, "ignore our own presence when the beta changes the sender realm")
+WC.Network.OnMessage(WC.PREFIX, "1|HELLO|60|Human|online|Alliance|Alice-OtherRealm", "CHANNEL", "Alice-OtherRealm")
+assert(WC.Network.players["alice-otherrealm"].name == "Alice-OtherRealm", "keep a different player with the same short name")
+WC.me = "Alice Brightvale-Realm"
+WC.Network.OnMessage(WC.PREFIX, "1|HELLO|60|Human|online|Alliance|Alice-Brightvale-Realm", "CHANNEL", "Alice-TransportRealm")
+assert(WC.Network.players["alice-transportrealm"] == nil,
+    "ignore our Forever surname even if the sender reports only a first name and backend realm")
+WC.Network.OnMessage(WC.PREFIX, "1|HELLO|60|Human|online|Alliance|Alice-Dawnvale-Realm", "CHANNEL", "Alice-Dawnvale-TransportRealm")
+assert(WC.Network.players["alice-dawnvale-transportrealm"].name == "Alice-Dawnvale-Realm",
+    "a different surname remains discoverable")
 
 print("network_spec: OK")

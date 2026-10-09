@@ -3,7 +3,7 @@ _G.WoWChess = WC
 
 WC.addonName = addonName
 WC.assetRoot = "Interface\\AddOns\\" .. addonName .. "\\assets\\"
-WC.ADDON_VERSION = "0.3.9-beta"
+WC.ADDON_VERSION = "0.3.33-beta"
 WC.VERSION = "6"
 WC.PREFIX = "WoWChess6"
 WC.CHANNEL = "WoWChess"
@@ -63,8 +63,12 @@ end
 
 function WC.PlayerName()
     local name, realm = UnitFullName("player")
-    if not name or name == "" then return nil end
+    -- Forever's UnitFullName may omit the surname. GetUnitName keeps both.
+    local displayed = GetUnitName and GetUnitName("player")
+    if type(displayed) == "string" and displayed:match("%S") then name = displayed end
+    if type(name) ~= "string" or name == "" then return nil end
     realm = normalizedRealm(realm) or currentRealm()
+    if realm and name:sub(-#realm - 1):lower() == ("-" .. realm):lower() then return name end
     return realm and (name .. "-" .. realm) or name
 end
 
@@ -76,6 +80,7 @@ end
 WC.events = CreateFrame("Frame")
 WC.events:RegisterEvent("ADDON_LOADED")
 WC.events:RegisterEvent("PLAYER_LOGIN")
+WC.events:RegisterEvent("UNIT_PORTRAIT_UPDATE")
 WC.events:RegisterEvent("PLAYER_LOGOUT")
 WC.events:RegisterEvent("CHAT_MSG_ADDON")
 WC.events:RegisterEvent("CHANNEL_UI_UPDATE")
@@ -96,6 +101,11 @@ WC.events:SetScript("OnEvent", function(_, event, ...)
         WC.Network.Initialize()
         WC.Game.Initialize()
         WC.UI.Initialize()
+    elseif event == "UNIT_PORTRAIT_UPDATE" then
+        local unit = ...
+        if unit == "player" and WC.UI and WC.UI.RefreshProfilePortrait then
+            WC.UI.RefreshProfilePortrait()
+        end
     elseif event == "PLAYER_LOGOUT" then
         if WC.Game.active then
             if WC.Game.active.mode ~= "bot" then
