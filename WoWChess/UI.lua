@@ -1,5 +1,5 @@
 local _, WC = ...
-local UI = { selected = nil, legal = {}, cells = {}, playerRows = {} }
+local UI = { selected = nil, legal = {}, cells = {}, playerRows = {}, localized = {}, mainSection = "home", moveNotice = false }
 WC.UI = UI
 
 local GOLD = { .98, .77, .31, 1 }
@@ -27,9 +27,10 @@ end
 
 local function label(parent, text, size, color, justify)
     local fs = parent:CreateFontString(nil, "OVERLAY", size == "large" and "GameFontNormalLarge" or "GameFontNormal")
-    fs:SetText(text or "")
+    fs:SetText(WC.L(text or ""))
     fs:SetTextColor(unpack(color or GOLD))
     fs:SetJustifyH(justify or "LEFT")
+    if text and text ~= "" then UI.localized[#UI.localized + 1] = { font = fs, key = text } end
     return fs
 end
 
@@ -43,7 +44,12 @@ local function button(parent, text, width, height, onClick, disabled)
     frame:SetScript("OnClick", disabled and nil or onClick)
     frame:SetScript("OnEnter", function(self)
         if not disabled then bg:SetColorTexture(.59, .15, .08, 1) end
-        if disabled then GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetText("Próximamente"); GameTooltip:Show() end
+        if disabled then GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetText(WC.L("Próximamente")); GameTooltip:Show() end
+        if self.tooltip then
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(self.tooltip())
+            GameTooltip:Show()
+        end
     end)
     frame:SetScript("OnLeave", function()
         bg:SetColorTexture(disabled and .16 or RED[1], disabled and .14 or RED[2], disabled and .12 or RED[3], 1)
@@ -64,8 +70,52 @@ local function titlebar(frame, text, close)
 end
 
 function UI.SetStatus(message)
-    if UI.mainStatus then UI.mainStatus:SetText(message or "") end
-    if UI.gameStatus then UI.gameStatus:SetText(message or "") end
+    local translated = WC.L(message or "")
+    if UI.mainStatus then UI.mainStatus:SetText(translated) end
+    if UI.gameStatus then UI.gameStatus:SetText(translated) end
+end
+
+function UI.NotifyOpponentMove()
+    local game = WC.Game.active
+    if not game or game.state.outcome or game.state.turn ~= game.color then return end
+    UI.moveNotice = true
+    if UI.moveBadge then UI.moveBadge:Show() end
+end
+
+function UI.ClearMoveNotification()
+    UI.moveNotice = false
+    if UI.moveBadge then UI.moveBadge:Hide() end
+end
+
+function UI.SetMainSection(section)
+    UI.mainSection = section == "options" and "options" or "home"
+    if UI.homeContent then UI.homeContent:SetShown(UI.mainSection == "home") end
+    if UI.optionsContent then UI.optionsContent:SetShown(UI.mainSection == "options") end
+    if UI.mainSection == "options" then UI.RefreshSettings() end
+end
+
+local function checkerColor(texture, row, col)
+    if (row + col) % 2 == 0 then
+        texture:SetColorTexture(.76, .60, .39, 1)
+    else
+        texture:SetColorTexture(.36, .23, .16, 1)
+    end
+end
+
+local function checkerPreview(parent, width, top)
+    local preview = CreateFrame("Frame", nil, parent)
+    preview:SetSize(width, width)
+    preview:SetPoint("TOP", 0, top)
+    local cell = width / 8
+    for row = 1, 8 do
+        for col = 1, 8 do
+            local tile = colorTexture(preview, "ARTWORK", 1, 1, 1, 1)
+            checkerColor(tile, row, col)
+            tile:SetSize(cell, cell)
+            tile:SetPoint("TOPLEFT", (col - 1) * cell, -(row - 1) * cell)
+        end
+    end
+    return preview
 end
 
 local function makeMain()
@@ -84,14 +134,16 @@ local function makeMain()
     sidebar:SetPoint("TOPLEFT", 12, -56)
     local menus = { "Jugar", "Jugadores", "Torneos", "Aspectos", "Historial", "Opciones" }
     for i, text in ipairs(menus) do
-        local enabled = i <= 2
+        local enabled = i <= 2 or i == 6
         button(sidebar, text, 150, 48, function()
+            UI.SetMainSection(i == 6 and "options" or "home")
             if i == 2 and UI.nameInput then UI.nameInput:SetFocus() end
         end, not enabled):SetPoint("TOPLEFT", 12, -14 - (i - 1) * 59)
     end
 
     local content = box(main, 600, 580)
     content:SetPoint("TOPLEFT", 195, -56)
+    UI.homeContent = content
     local banner = box(content, 576, 132)
     banner:SetPoint("TOPLEFT", 12, -12)
     local bannerImage = banner:CreateTexture(nil, "ARTWORK")
@@ -170,8 +222,8 @@ local function makeMain()
     SetPortraitTexture(portrait, "player")
     local ownName = label(right, WC.ShortName(WC.me), nil)
     ownName:SetPoint("TOPLEFT", 76, -53)
-    local info = label(right, "Nivel " .. tostring(UnitLevel("player") or "?"), nil, MUTED)
-    info:SetPoint("TOPLEFT", 76, -75)
+    UI.levelLabel = label(right, "", nil, MUTED)
+    UI.levelLabel:SetPoint("TOPLEFT", 76, -75)
     UI.stats = label(right, "", nil, MUTED)
     UI.stats:SetPoint("TOPLEFT", 13, -116)
     UI.stats:SetWidth(195)
@@ -183,16 +235,58 @@ local function makeMain()
     local previewTitle = label(right, "Tablero inicial", "large")
     previewTitle:SetPoint("TOPLEFT", 12, -306)
     local preview = right:CreateTexture(nil, "ARTWORK")
-    preview:SetTexture(WC.Theme.BoardPath())
-    preview:SetTexCoord(0, 378 / 512, 0, 505 / 512)
+    preview:SetTexture(WC.assetRoot .. WC.Theme.board.path)
+    preview:SetTexCoord(0, WC.Theme.board.imageWidth / WC.Theme.board.textureWidth,
+        0, WC.Theme.board.imageHeight / WC.Theme.board.textureHeight)
     preview:SetSize(142, 190)
     preview:SetPoint("TOP", 0, -344)
-    local previewText = label(right, "Durotar · Humanos y orcos", nil, MUTED, "CENTER")
-    previewText:SetPoint("BOTTOM", 0, 15)
+    UI.boardPreview = preview
+    UI.classicPreview = checkerPreview(right, 142, -367)
+    UI.previewText = label(right, "", nil, MUTED, "CENTER")
+    UI.previewText:SetPoint("BOTTOM", 0, 15)
+
+    local options = box(main, 600, 580)
+    options:SetPoint("TOPLEFT", 195, -56)
+    UI.optionsContent = options
+    local optionsTitle = label(options, "Opciones", "large")
+    optionsTitle:SetPoint("TOPLEFT", 20, -22)
+    local boardTitle = label(options, "Tablero", "large")
+    boardTitle:SetPoint("TOPLEFT", 20, -82)
+    local boardHint = label(options, "Elegí el fondo del tablero.", nil, MUTED)
+    boardHint:SetPoint("TOPLEFT", 20, -114)
+    UI.boardButtons = {}
+    for i, background in ipairs(WC.Theme.backgrounds) do
+        local choice = button(options, background.name, 254, 54, function()
+            WC.Theme.SetBackground(background.id)
+            UI.RefreshTheme()
+            UI.RefreshSettings()
+        end)
+        choice:SetPoint("TOPLEFT", 20 + (i - 1) * 274, -155)
+        UI.boardButtons[background.id] = choice
+    end
+    local languageTitle = label(options, "Idioma", "large")
+    languageTitle:SetPoint("TOPLEFT", 20, -258)
+    local languageHint = label(options, "Elegí el idioma de la interfaz.", nil, MUTED)
+    languageHint:SetPoint("TOPLEFT", 20, -290)
+    UI.languageButtons = {}
+    for i, choice in ipairs({ { "es", "Español" }, { "en", "Inglés" } }) do
+        local language = choice[1]
+        local selection = button(options, choice[2], 254, 54, function()
+            WC.SetLanguage(language)
+            UI.RefreshLanguage()
+        end)
+        selection:SetPoint("TOPLEFT", 20 + (i - 1) * 274, -331)
+        UI.languageButtons[language] = selection
+    end
+    local applyHint = label(options, "Los cambios se aplican de inmediato.", nil, MUTED)
+    applyHint:SetPoint("TOPLEFT", 20, -423)
+    options:Hide()
 
     UI.mainStatus = label(main, "", nil, MUTED)
     UI.mainStatus:SetPoint("BOTTOMLEFT", 19, 9)
     UI.mainStatus:SetWidth(990)
+    UI.RefreshTheme()
+    UI.RefreshSettings()
     main:Hide()
 end
 
@@ -257,9 +351,12 @@ local function makeGame()
     UI.boardFrame = boardFrame
     local boardImage = boardFrame:CreateTexture(nil, "BACKGROUND")
     boardImage:SetAllPoints()
-    boardImage:SetTexture(WC.Theme.BoardPath())
+    boardImage:SetTexture(WC.assetRoot .. board.path)
     boardImage:SetTexCoord(cropX / board.textureWidth, (board.imageWidth - cropX) / board.textureWidth,
         cropY / board.textureHeight, (board.imageHeight - cropY) / board.textureHeight)
+    UI.boardImage = boardImage
+    UI.classicBackground = colorTexture(boardFrame, "BACKGROUND", .16, .10, .08, 1)
+    UI.classicBackground:SetAllPoints()
     local turnBadge = box(boardFrame, 242, 30)
     turnBadge:SetPoint("TOP", 0, -100)
     UI.boardTurn = label(turnBadge, "", nil, GOLD, "CENTER")
@@ -271,6 +368,9 @@ local function makeGame()
             square:SetSize(cell, cell)
             square:SetPoint("TOPLEFT", (board.gridX - cropX) * scale + (col - 1) * cell,
                 -((board.gridY - cropY) * scale + (row - 1) * cell))
+            local tile = colorTexture(square, "BACKGROUND", 1, 1, 1, 1)
+            checkerColor(tile, row, col)
+            tile:SetAllPoints()
             local highlight = colorTexture(square, "ARTWORK", 1, .77, .12, .36)
             highlight:SetAllPoints()
             highlight:Hide()
@@ -281,7 +381,7 @@ local function makeGame()
             local piece = square:CreateTexture(nil, "OVERLAY")
             piece:SetSize(cell * 1.28, cell * 1.28)
             piece:SetPoint("CENTER")
-            square.highlight, square.dot, square.piece = highlight, dot, piece
+            square.tile, square.highlight, square.dot, square.piece = tile, highlight, dot, piece
             square:SetScript("OnClick", function() UI.ClickSquare(square.boardSquare) end)
             UI.cells[#UI.cells + 1] = { frame = square, row = row, col = col }
         end
@@ -314,7 +414,56 @@ local function makeGame()
     UI.gameStatus = label(frame, "", nil, MUTED)
     UI.gameStatus:SetPoint("BOTTOMLEFT", 18, 10)
     UI.gameStatus:SetWidth(1124)
+    UI.RefreshTheme()
     frame:Hide()
+end
+
+function UI.RefreshSettings()
+    if UI.boardButtons then
+        local selected = WC.Theme.Background().id
+        for _, background in ipairs(WC.Theme.backgrounds) do
+            UI.boardButtons[background.id]:SetCaption((selected == background.id and "[x] " or "") .. WC.L(background.name))
+        end
+    end
+    if UI.languageButtons then
+        for _, language in ipairs({ { "es", "Español" }, { "en", "Inglés" } }) do
+            UI.languageButtons[language[1]]:SetCaption((WC.Language() == language[1] and "[x] " or "") .. WC.L(language[2]))
+        end
+    end
+end
+
+function UI.RefreshTheme()
+    local background = WC.Theme.Background()
+    local path = WC.Theme.BoardPath()
+    local plain = not path
+    if UI.boardImage then
+        if path then UI.boardImage:SetTexture(path) end
+        UI.boardImage:SetShown(not plain)
+    end
+    if UI.classicBackground then UI.classicBackground:SetShown(plain) end
+    for _, entry in ipairs(UI.cells) do entry.frame.tile:SetShown(plain) end
+    if UI.boardPreview then
+        if path then UI.boardPreview:SetTexture(path) end
+        UI.boardPreview:SetShown(not plain)
+    end
+    if UI.classicPreview then UI.classicPreview:SetShown(plain) end
+    if UI.previewText then
+        UI.previewText:SetText(WC.L(background.name) .. " · " .. WC.L("Humanos y orcos"))
+    end
+end
+
+function UI.RefreshLanguage()
+    for _, entry in ipairs(UI.localized) do entry.font:SetText(WC.L(entry.key)) end
+    if UI.levelLabel then UI.levelLabel:SetText(WC.L("Nivel") .. " " .. tostring(UnitLevel("player") or "?")) end
+    UI.RefreshTheme()
+    UI.RefreshSettings()
+    UI.RefreshPlayers()
+    if WC.Game.active then UI.RefreshGame() end
+    if UI.selected and WC.Game.active then
+        local piece = WC.Game.active.state.board[UI.selected]
+        if piece then UI.selectedPiece:SetText(WC.L(WC.Theme.names[piece:sub(2, 2)]) .. " · " .. WC.Chess.Name(UI.selected)) end
+    end
+    UI.SetStatus("")
 end
 
 local function modal(title, message, actions)
@@ -336,7 +485,7 @@ end
 
 function UI.ShowInvite(sender)
     UI.HideInvite()
-    UI.invite = modal("Invitación de ajedrez", WC.ShortName(sender) .. " te desafía a una partida de 10 minutos.", {
+    UI.invite = modal("Invitación de ajedrez", string.format(WC.L("%s te desafía a una partida de 10 minutos."), WC.ShortName(sender)), {
         { "Aceptar", WC.Game.AcceptInvite }, { "Rechazar", WC.Game.DeclineInvite },
     })
 end
@@ -379,12 +528,12 @@ function UI.RefreshPlayers()
             row.target = info.name
             row.name:SetText(WC.ShortName(info.name))
             row.level:SetText(tostring(info.level))
-            row.status:SetText(info.status == "busy" and "En partida" or "Disponible")
+            row.status:SetText(WC.L(info.status == "busy" and "En partida" or "Disponible"))
             row.challenge:SetShown(info.status ~= "busy")
         end
     end
     local stats = WC.db and WC.db.stats or { wins = 0, losses = 0, draws = 0 }
-    UI.stats:SetText("Victorias: " .. stats.wins .. "\nDerrotas: " .. stats.losses .. "\nTablas: " .. stats.draws)
+    UI.stats:SetText(string.format(WC.L("Victorias: %d\nDerrotas: %d\nTablas: %d"), stats.wins, stats.losses, stats.draws))
     UI.activeButton:SetShown(WC.Game.active ~= nil)
 end
 
@@ -422,12 +571,15 @@ function UI.RefreshGame()
     local game = WC.Game.active
     if not game then return end
     UI.drawButton:SetShown(game.mode ~= "bot")
-    UI.selfName:SetText(WC.ShortName(WC.me) .. (game.color == "w" and " · Blancas" or " · Negras"))
-    UI.opponentName:SetText(WC.ShortName(game.opponent) .. (game.color == "w" and " · Negras" or " · Blancas"))
-    UI.startLabel:SetText("Empieza: " .. WC.ShortName(game.white))
+    local function displayName(name)
+        return WC.ShortName(game.mode == "bot" and name == game.opponent and WC.L(name) or name)
+    end
+    UI.selfName:SetText(WC.ShortName(WC.me) .. WC.L(game.color == "w" and " · Blancas" or " · Negras"))
+    UI.opponentName:SetText(displayName(game.opponent) .. WC.L(game.color == "w" and " · Negras" or " · Blancas"))
+    UI.startLabel:SetText(string.format(WC.L("Empieza: %s"), displayName(game.white)))
     local current = game.state.turn == game.color and WC.me or game.opponent
-    UI.turnLabel:SetText("> Turno de: " .. WC.ShortName(current))
-    UI.boardTurn:SetText((game.seq == 0 and "Empieza: " or "Turno: ") .. WC.ShortName(current))
+    UI.turnLabel:SetText(string.format(WC.L("> Turno de: %s"), displayName(current)))
+    UI.boardTurn:SetText(string.format(WC.L(game.seq == 0 and "Empieza: %s" or "Turno: %s"), displayName(current)))
     UI.RefreshClocks()
     UI.RefreshBoard()
     local moves = game.state.moves
@@ -443,13 +595,14 @@ function UI.SubmitMove(from, to, promotion)
     local ok, err = WC.Game.PlayMove(from, to, promotion)
     if not ok then UI.SetStatus(err) end
     UI.selected, UI.legal = nil, {}
-    UI.selectedPiece:SetText("Ninguna")
+    UI.selectedPiece:SetText(WC.L("Ninguna"))
     UI.RefreshBoard()
 end
 
 function UI.ClickSquare(square)
     local game = WC.Game.active
     if not game or game.state.turn ~= game.color then return end
+    UI.ClearMoveNotification()
     local piece = game.state.board[square]
     if UI.selected then
         for _, move in ipairs(UI.legal) do
@@ -463,10 +616,10 @@ function UI.ClickSquare(square)
     if piece and piece:sub(1, 1) == game.color then
         UI.selected = square
         UI.legal = WC.Chess.LegalMoves(game.state, square)
-        UI.selectedPiece:SetText(WC.Theme.names[piece:sub(2, 2)] .. " · " .. WC.Chess.Name(square))
+        UI.selectedPiece:SetText(WC.L(WC.Theme.names[piece:sub(2, 2)]) .. " · " .. WC.Chess.Name(square))
     else
         UI.selected, UI.legal = nil, {}
-        UI.selectedPiece:SetText("Ninguna")
+        UI.selectedPiece:SetText(WC.L("Ninguna"))
     end
     UI.RefreshBoard()
 end
@@ -474,11 +627,13 @@ end
 function UI.ShowMain()
     UI.RefreshPlayers()
     UI.gameFrame:Hide()
+    UI.SetMainSection(UI.mainSection)
     UI.main:Show()
 end
 
 function UI.ShowGame()
     if not WC.Game.active then return end
+    UI.ClearMoveNotification()
     fitGameFrame(UI.gameFrame)
     UI.selected, UI.legal = nil, {}
     UI.main:Hide()
@@ -491,13 +646,14 @@ function UI.ShowResult(result)
     UI.selected, UI.legal = nil, {}
     local title = result.winner == nil and "Tablas" or (result.won and "Ganaste" or "Perdiste")
     if UI.resultModal then UI.resultModal:Hide() end
-    UI.resultModal = modal(title, "Resultado: " .. result.reason .. ".", {
+    UI.resultModal = modal(title, string.format(WC.L("Resultado: %s."), WC.L(result.reason)), {
         { "Volver", function() UI.gameFrame:Hide(); UI.ShowMain() end },
     })
     UI.RefreshPlayers()
 end
 
 function UI.Toggle()
+    if UI.moveNotice and WC.Game.active then UI.ShowGame(); return end
     if UI.gameFrame and UI.gameFrame:IsShown() then UI.gameFrame:Hide(); return end
     if UI.main and UI.main:IsShown() then UI.main:Hide(); return end
     UI.ShowMain()
@@ -506,10 +662,21 @@ end
 function UI.Initialize()
     makeMain()
     makeGame()
+    UI.RefreshLanguage()
     local launcher = button(Minimap or UIParent, "C", 28, 28, UI.Toggle)
     launcher:SetPoint("BOTTOMLEFT", Minimap or UIParent, "BOTTOMLEFT", -6, -6)
     launcher:SetFrameStrata("MEDIUM")
+    launcher.tooltip = function()
+        return WC.L(UI.moveNotice and "Tu turno: el rival movió." or "Abrir WoW Chess")
+    end
     UI.launcher = launcher
+    local badge = box(launcher, 18, 18)
+    badge:SetPoint("TOPRIGHT", 6, 6)
+    badge:SetFrameLevel(launcher:GetFrameLevel() + 1)
+    local symbol = label(badge, "!", nil, GOLD, "CENTER")
+    symbol:SetAllPoints()
+    UI.moveBadge = badge
+    badge:SetShown(UI.moveNotice)
     UI.RefreshPlayers()
     UI.ShowMain()
 end

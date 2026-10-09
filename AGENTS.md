@@ -10,11 +10,13 @@
 - Cada jugador dispone de 10 minutos sin incremento. Una desconexión o pérdida de contacto sostenida causa derrota.
 - Aplicar las reglas del ajedrez, incluidos enroque, captura al paso, promoción, jaque mate y tablas.
 - Sortear las blancas al aceptar el reto y mostrar el nombre de quien comienza junto a un indicador en el tablero.
-- La interfaz inicial está en español. Las secciones futuras pueden mostrarse como vistas preliminares, sin simular funciones inexistentes.
+- La interfaz admite español e inglés. Usar el idioma del cliente por defecto y permitir cambiarlo en Opciones sin alterar los códigos internos ni el protocolo. Las secciones futuras pueden mostrarse como vistas preliminares, sin simular funciones inexistentes.
+- Avisar en el icono del minimapa cuando una jugada válida del bot o rival deja el turno al jugador. Quitar el aviso al abrir o usar el tablero y al terminar la partida; los mensajes duplicados no deben generar avisos nuevos.
 
 ## Arquitectura
 
 - Mantener independientes la lógica de ajedrez, el estado y reloj de la partida, el transporte entre clientes, la interfaz y los recursos visuales.
+- Guardar en SavedVariables el idioma y el fondo de tablero elegidos. Mantener las opciones visuales separadas de las reglas y de la asignación de blancas y negras.
 - Ejecutar la búsqueda del bot por tramos breves entre cuadros para que la interfaz siga respondiendo; limitar también el tiempo total de cada jugada.
 - El motor de ajedrez debe ser Lua puro y poder probarse fuera del cliente.
 - Validar remitentes, estados y secuencia de todos los mensajes recibidos; limitar el tráfico y tolerar duplicados.
@@ -24,10 +26,10 @@
 ## Recursos
 
 - `designs/main.png` y `designs/match.png` son referencias de interfaz.
-- Empezar con el tablero de arriba a la izquierda de `designs/board` y las piezas humanas contra orcos de `designs/pieces`.
+- Ofrecer el tablero de arriba a la izquierda de `designs/board` (Durotar) y un tablero clásico generado por la interfaz; mantener las piezas humanas contra orcos de `designs/pieces`.
 - Mantener la asignación de blancas y negras separada del aspecto humano/orco; tablero y piezas deben poder sustituirse sin cambiar las reglas.
 
 ## Verificación
 
-- Probar el motor de ajedrez y el bot fuera de WoW. Comprobar el modo de práctica en el cliente y el flujo entre jugadores con dos clientes de la beta: descubrimiento, invitación, jugadas, relojes, resultados y desconexión.
+- Probar el motor de ajedrez, el bot, las opciones y el cambio de idioma fuera de WoW. Comprobar los fondos y textos en el cliente, el modo de práctica y el flujo entre jugadores con dos clientes de la beta: descubrimiento, invitación, jugadas, relojes, resultados y desconexión.
 - Documentar las limitaciones que solo puedan verificarse dentro del juego.

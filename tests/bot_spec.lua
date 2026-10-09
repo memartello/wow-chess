@@ -6,6 +6,7 @@ CreateFrame = function()
     return frame
 end
 
+assert(loadfile("WoWChess/Locale.lua"))("WoWChess", WC)
 assert(loadfile("WoWChess/Chess.lua"))("WoWChess", WC)
 assert(loadfile("WoWChess/Bot.lua"))("WoWChess", WC)
 local chess, bot = WC.Chess, WC.Bot

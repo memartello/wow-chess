@@ -23,6 +23,7 @@ function Game.Finish(reason, winner)
     local game = Game.active
     if not game then return end
     Game.active = nil
+    if WC.UI then WC.UI.ClearMoveNotification() end
     if game.mode == "bot" then WC.Bot.Stop() end
     Game.lastResult = { reason = reason, winner = winner, won = winner == game.color, opponent = game.opponent, state = game.state }
     if game.mode ~= "bot" then
@@ -77,7 +78,7 @@ function Game.BotMove(move)
     end
     local nextState = WC.Chess.Move(game.state, move.from, move.to, move.promotion)
     if not nextState then
-        WC.Print("El bot intentó una jugada ilegal.")
+        WC.Print(WC.L("El bot intentó una jugada ilegal."))
         Game.Finish("error del bot", game.color)
         return
     end
@@ -86,6 +87,7 @@ function Game.BotMove(move)
     game.turnStarted = GetTime()
     WC.UI.SetStatus("")
     WC.UI.RefreshGame()
+    WC.UI.NotifyOpponentMove()
     if nextState.outcome then Game.Finish(nextState.outcome.reason, nextState.outcome.winner) end
 end
 
@@ -111,7 +113,7 @@ function Game.Challenge(target)
         return false, "No se pudo enviar el reto. Revisá el nombre y la conexión."
     end
     Game.outgoing = invitation
-    WC.UI.SetStatus("Reto enviado a " .. WC.ShortName(target) .. ". Esperando respuesta...")
+    WC.UI.SetStatus(string.format(WC.L("Reto enviado a %s. Esperando respuesta..."), WC.ShortName(target)))
     return true
 end
 
@@ -285,6 +287,7 @@ function Game.OnMessage(action, parts, sender)
         game.seq = seq
         game.turnStarted = GetTime()
         WC.UI.RefreshGame()
+        WC.UI.NotifyOpponentMove()
         if nextState.outcome then Game.Finish(nextState.outcome.reason, nextState.outcome.winner) end
     elseif action == "RESIGN" or action == "QUIT" then
         Game.Finish(action == "QUIT" and "desconexión" or "rendición", game.color)

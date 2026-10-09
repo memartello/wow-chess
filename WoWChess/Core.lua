@@ -46,7 +46,7 @@ WC.events:SetScript("OnEvent", function(_, event, ...)
         if loaded ~= addonName then return end
         WoWChessDB = type(WoWChessDB) == "table" and WoWChessDB or {}
         WC.db = WoWChessDB
-        WC.db.settings = WC.db.settings or {}
+        WC.db.settings = type(WC.db.settings) == "table" and WC.db.settings or {}
         WC.db.stats = WC.db.stats or { wins = 0, losses = 0, draws = 0 }
         for _, key in ipairs({ "wins", "losses", "draws" }) do
             WC.db.stats[key] = tonumber(WC.db.stats[key]) or 0

@@ -149,7 +149,7 @@ function Bot.Start(state, callback)
         for _ = 1, 12 do
             local ok, move = coroutine.resume(job.co)
             if not ok then
-                WC.Print("Error del bot: " .. tostring(move))
+                WC.Print(WC.L("Error del bot: ") .. tostring(move))
                 Bot.Stop()
                 job.callback(fallback)
                 return

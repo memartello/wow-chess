@@ -2,32 +2,44 @@
 
 Addon de ajedrez para **World of Warcraft: Forever**. Permite desafiar a otro personaje de la misma facción y ruleset o practicar contra un bot local. Las partidas usan un reloj de 10 minutos por jugador.
 
-## Instalación en Linux
+## Instalación
 
-La carpeta lista para copiar es [`WoWChess/`](WoWChess/). Contiene únicamente los archivos que carga el juego; `designs/`, `tests/` y la documentación quedan fuera.
+La carpeta lista para copiar es [`WoWChess/`](WoWChess/). Contiene únicamente los archivos que carga el juego; `designs/`, `tests/` y la documentación quedan fuera. Elegí los pasos de tu sistema operativo. Los instaladores buscan la carpeta habitual de WoW: Forever y también aceptan la ruta de `Interface/AddOns` si instalaste el juego en otro lugar.
 
 1. Cerrá WoW: Forever si está abierto.
-2. Desde la raíz de este proyecto, ejecutá el instalador:
+2. Desde la raíz de este proyecto, instalá el addon:
+
+   **Linux** (terminal Bash):
 
    ```bash
    ./install.sh
    ```
 
-   También podés copiar la carpeta manualmente:
+   Si no encuentra el juego, indicá la carpeta de AddOns de tu instalación de Wine, Lutris o Battle.net:
 
    ```bash
-   cp -a WoWChess '/home/mmartello/Games/battlenet/drive_c/Program Files (x86)/World of Warcraft/_classic_beta_/Interface/AddOns/'
+   ./install.sh '/ruta/a/World of Warcraft/_classic_beta_/Interface/AddOns'
    ```
 
-3. Comprobá que exista `.../_classic_beta_/Interface/AddOns/WoWChess/WoWChess_Camelot.toc`. El archivo `.toc` debe estar directamente dentro de `WoWChess/`, sin otra carpeta intermedia.
+   **Windows** (PowerShell):
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+   ```
+
+   Si instalaste el juego en otra unidad o carpeta:
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -AddOnsDir 'D:\Juegos\World of Warcraft\_classic_beta_\Interface\AddOns'
+   ```
+
+   También podés copiar `WoWChess/` manualmente dentro de la carpeta `World of Warcraft/_classic_beta_/Interface/AddOns` de tu instalación.
+
+3. Comprobá que exista `Interface/AddOns/WoWChess/WoWChess_Camelot.toc`. El archivo `.toc` debe estar directamente dentro de `WoWChess/`, sin otra carpeta intermedia.
 4. Abrí **WoW: Forever**. En la selección de personajes, entrá a **AddOns** y asegurate de que **WoW Chess** esté habilitado. Si actualizaste el addon con el juego abierto, usá `/reload`.
 5. Para jugar contra otra persona, ambos jugadores deben instalar y activar el addon. Para practicar contra el bot alcanza con una instalación.
 
-Para actualizar una instalación existente, copiá el contenido nuevo encima de la carpeta instalada:
-
-```bash
-cp -a WoWChess/. '/home/mmartello/Games/battlenet/drive_c/Program Files (x86)/World of Warcraft/_classic_beta_/Interface/AddOns/WoWChess/'
-```
+Para actualizarlo, ejecutá de nuevo el instalador de tu sistema operativo con la misma ruta si la habías indicado.
 
 ## Cómo jugar
 
@@ -42,7 +54,13 @@ Para jugar contra otra persona:
 5. En tu turno, hacé clic en una de tus piezas y luego en una casilla marcada. Si un peón promociona, elegí dama, torre, alfil o caballo.
 6. El reloj de cada jugador corre durante su turno. Podés **Ofrecer tablas**, **Rendirte** o volver a la lista sin abandonar la partida; **Volver a partida** la reabre. Quedarse sin tiempo o desconectarse causa derrota.
 
+Cuando el bot o tu rival hace una jugada, aparece un **!** en el botón **C** junto al minimapa para avisarte que es tu turno. Pulsá el botón para abrir la partida y quitar el aviso. También desaparece al interactuar con el tablero o al terminar la partida.
+
 Cada personaje puede mantener una sola partida activa. Se admiten enroque, captura al paso, jaque mate, ahogado y tablas por material insuficiente, triple repetición, 50 movimientos o acuerdo entre jugadores.
+
+## Opciones
+
+En la pantalla principal, abrí **Opciones** en el menú lateral. En **Tablero** podés elegir el fondo ilustrado de Durotar o el tablero clásico de dos colores. En **Idioma** podés elegir español o inglés. Los cambios se aplican en el momento y se conservan al volver a entrar. Si todavía no elegiste un idioma, el addon usa inglés cuando el cliente está en inglés y español en los demás casos.
 
 ## Estructura
 
@@ -50,6 +68,7 @@ Cada personaje puede mantener una sola partida activa. Se admiten enroque, captu
 | --- | --- |
 | `WoWChess/Chess.lua` | Reglas y estado de ajedrez, sin dependencias del cliente |
 | `WoWChess/Bot.lua` | Búsqueda y evaluación del bot local; usa las reglas de `Chess.lua` |
+| `WoWChess/Locale.lua` | Textos en español e inglés |
 | `WoWChess/Network.lua` | Descubrimiento, canal y mensajes directos |
 | `WoWChess/Game.lua` | Invitaciones, partida, reloj y resultados |
 | `WoWChess/Theme.lua` | Selección intercambiable de tablero y piezas |
@@ -66,6 +85,7 @@ Desde la raíz del proyecto:
 lua5.1 tests/chess_spec.lua
 lua5.1 tests/game_spec.lua
 lua5.1 tests/bot_spec.lua
+lua5.1 tests/settings_spec.lua
 luac5.1 -p WoWChess/*.lua
 ```
 

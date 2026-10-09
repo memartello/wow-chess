@@ -1,6 +1,7 @@
 local now = 100
 local sent = {}
 local botThinking
+local notices, clears = 0, 0
 local WC = {
     VERSION = "1", GAME_SECONDS = 600, INVITE_SECONDS = 30,
     me = "Alice-Realm", db = { stats = { wins = 0, losses = 0, draws = 0 } },
@@ -10,6 +11,8 @@ local WC = {
         SetStatus = function() end, ShowInvite = function() end,
         HideInvite = function() end, ShowDrawOffer = function() end,
         HideDrawOffer = function() end,
+        NotifyOpponentMove = function() notices = notices + 1 end,
+        ClearMoveNotification = function() clears = clears + 1 end,
     },
 }
 WC.Name = function(name)
@@ -29,8 +32,10 @@ WC.Bot = {
 GetTime = function() return now end
 time = function() return 123456 end
 UnitFactionGroup = function() return "Alliance" end
+GetLocale = function() return "esES" end
 C_Timer = { NewTicker = function() end }
 
+assert(loadfile("WoWChess/Locale.lua"))("WoWChess", WC)
 assert(loadfile("WoWChess/Chess.lua"))("WoWChess", WC)
 assert(loadfile("WoWChess/Game.lua"))("WoWChess", WC)
 local game = WC.Game
@@ -47,8 +52,9 @@ assert(game.active.seq == 1 and game.active.remaining.w == 598)
 local id = game.active.id
 game.OnMessage("MOVE", { "1", "MOVE", id, "2", "e7", "e5", "-", "59900" }, "Bob-Realm")
 assert(game.active.seq == 2 and game.active.state.board[WC.Chess.Square("e5")] == "bP")
+assert(notices == 1, "opponent move notification")
 game.OnMessage("MOVE", { "1", "MOVE", id, "2", "e7", "e5", "-", "59900" }, "Bob-Realm")
-assert(game.active.seq == 2, "duplicados")
+assert(game.active.seq == 2 and notices == 1, "duplicates do not notify")
 now = now + 21
 game.Tick()
 assert(not game.active and WC.db.stats.wins == 1, "desconexión")
@@ -76,8 +82,10 @@ assert(botThinking, "el bot debe recibir el turno")
 local firstBotMove = WC.Chess.AllLegalMoves(botThinking.state)[1]
 botThinking.callback(firstBotMove)
 assert(game.active and game.active.mode == "bot" and game.active.seq >= 1)
+assert(notices == 2, "bot move notification")
 assert(#sent == messagesBeforeBot, "la práctica no debe enviar mensajes de partida")
 game.Resign()
 assert(not game.active and WC.db.stats.wins == 1 and WC.db.stats.losses == 1, "la práctica no altera estadísticas PvP")
+assert(clears >= 3, "finished games clear notifications")
 
 print("game_spec: OK")
