@@ -8,10 +8,18 @@ local function fields(message)
     return result
 end
 
+local function send(message, chatType, target)
+    if not C_ChatInfo or not C_ChatInfo.SendAddonMessage then return false end
+    local ok, first, second = pcall(C_ChatInfo.SendAddonMessage, WC.PREFIX, message, chatType, target)
+    if not ok then return false end
+    local result = first
+    if second ~= nil then result = second end
+    return result == 0 or result == true or result == nil
+end
+
 function Network.SendWhisper(target, message)
-    if not target or not C_ChatInfo or not C_ChatInfo.SendAddonMessage then return false end
-    local ok, result = pcall(C_ChatInfo.SendAddonMessage, WC.PREFIX, message, "WHISPER", target)
-    return ok and (result == 0 or result == nil)
+    if not target then return false end
+    return send(message, "WHISPER", target)
 end
 
 function Network.SendGame(action, game, payload)
@@ -22,8 +30,7 @@ end
 function Network.SendChannel(message)
     Network.UpdateChannel()
     if not Network.channelId then return false end
-    local ok, result = pcall(C_ChatInfo.SendAddonMessage, WC.PREFIX, message, "CHANNEL", tostring(Network.channelId))
-    return ok and (result == 0 or result == nil)
+    return send(message, "CHANNEL", tostring(Network.channelId))
 end
 
 function Network.UpdateChannel()

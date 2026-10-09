@@ -36,7 +36,7 @@ La carpeta lista para copiar es [`WoWChess/`](WoWChess/). Contiene únicamente l
    También podés copiar `WoWChess/` manualmente dentro de la carpeta `World of Warcraft/_classic_beta_/Interface/AddOns` de tu instalación.
 
 3. Comprobá que exista `Interface/AddOns/WoWChess/WoWChess_Camelot.toc`. El archivo `.toc` debe estar directamente dentro de `WoWChess/`, sin otra carpeta intermedia.
-4. Abrí **WoW: Forever**. En la selección de personajes, entrá a **AddOns** y asegurate de que **WoW Chess** esté habilitado. Si actualizaste el addon con el juego abierto, usá `/reload`.
+4. Abrí **WoW: Forever**. En la selección de personajes, entrá a **AddOns** y asegurate de que **WoW Chess** esté habilitado. Para jugar entre dos personas, comprobá que el `## Version` del archivo `.toc` instalado sea el mismo en ambos equipos. Si actualizaste el addon con el juego abierto, usá `/reload` en ambos clientes.
 5. Para jugar contra otra persona, ambos jugadores deben instalar y activar el addon. Para practicar contra el bot alcanza con una instalación.
 
 Para actualizarlo, ejecutá de nuevo el instalador de tu sistema operativo con la misma ruta si la habías indicado.
@@ -50,7 +50,7 @@ Para jugar contra otra persona:
 1. Entrá con un personaje. La pantalla principal se abre al ingresar; después podés abrirla o cerrarla con `/chess`, `/wowchess` o el botón **C** junto al minimapa.
 2. Esperá unos segundos a que aparezcan usuarios del addon en **Jugadores disponibles**. Podés pulsar **Actualizar**. La ventana del otro jugador puede estar cerrada.
 3. Pulsá **Retar** junto a un jugador disponible. Si no aparece, escribí `Nombre` o `Nombre-Reino` en **Desafiar por nombre** y presioná Enter. El mensaje directo debe poder llegarle.
-4. El otro jugador acepta o rechaza la invitación. Si no responde en 30 segundos, vence. Al aceptar, se sortean las blancas y el tablero indica quién empieza.
+4. El otro jugador acepta o rechaza la invitación. Si no responde en 30 segundos, vence. Al aceptar, se sortean las blancas; los clientes reintentan el inicio y confirman la conexión antes de poner en marcha los relojes. El tablero indica quién empieza. Si no logran conectar en 30 segundos, la partida se cancela sin contar un resultado.
 5. En tu turno, hacé clic en una de tus piezas y luego en una casilla marcada. Si un peón promociona, elegí dama, torre, alfil o caballo.
 6. El reloj de cada jugador corre durante su turno. Podés **Ofrecer tablas**, **Rendirte** o volver a la lista sin abandonar la partida; **Volver a partida** la reabre. Quedarse sin tiempo o desconectarse causa derrota.
 
@@ -86,7 +86,9 @@ lua5.1 tests/chess_spec.lua
 lua5.1 tests/game_spec.lua
 lua5.1 tests/bot_spec.lua
 lua5.1 tests/settings_spec.lua
+lua5.1 tests/network_spec.lua
+lua5.1 tests/handshake_spec.lua
 luac5.1 -p WoWChess/*.lua
 ```
 
-La búsqueda del bot tiene profundidad máxima de cuatro jugadas parciales y un presupuesto aproximado de cuatro segundos por turno. Es una dificultad orientativa, no una clasificación Elo. La integración del bot todavía requiere prueba dentro de Forever; la integración entre jugadores requiere prueba con dos clientes. En la beta se han reportado canales personalizados separados entre reinos internos del mismo ruleset; por eso la lista puede omitir jugadores conectados. Si el cliente se cierra abruptamente, el rival detecta la pérdida de contacto tras 20 segundos. Las estadísticas locales del cliente cerrado pueden no guardarse, porque SavedVariables se escriben al salir normalmente.
+La búsqueda del bot tiene profundidad máxima de cuatro jugadas parciales y un presupuesto aproximado de cuatro segundos por turno. Es una dificultad orientativa, no una clasificación Elo. La integración del bot todavía requiere prueba dentro de Forever; la conexión entre jugadores requiere prueba con dos clientes actualizados. En la beta se han reportado canales personalizados separados entre reinos internos del mismo ruleset; por eso la lista puede omitir jugadores conectados. Si el cliente se cierra abruptamente, el rival detecta la pérdida de contacto tras 20 segundos. Las estadísticas locales del cliente cerrado pueden no guardarse, porque SavedVariables se escriben al salir normalmente.

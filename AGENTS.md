@@ -7,6 +7,7 @@
 - El modo de práctica enfrenta al personaje con un bot local, sin mensajes de partida ni cambios en las estadísticas contra otros jugadores. Mantener la dificultad separada de las reglas y del transporte para poder ajustarla o reemplazar el bot.
 - Descubrir usuarios conectados del addon que sean alcanzables por su canal. La lista puede ser incompleta debido a las limitaciones de comunicación de la beta.
 - Iniciar partidas por invitación directa; las invitaciones expiran tras 30 segundos.
+- Reintentar la aceptación y el inicio ante pérdidas de mensajes. Confirmar la conexión entre ambos clientes antes de activar los relojes y cancelar un inicio fallido sin registrar victoria ni derrota.
 - Cada jugador dispone de 10 minutos sin incremento. Una desconexión o pérdida de contacto sostenida causa derrota.
 - Aplicar las reglas del ajedrez, incluidos enroque, captura al paso, promoción, jaque mate y tablas.
 - Sortear las blancas al aceptar el reto y mostrar el nombre de quien comienza junto a un indicador en el tablero.
@@ -31,5 +32,5 @@
 
 ## Verificación
 
-- Probar el motor de ajedrez, el bot, las opciones y el cambio de idioma fuera de WoW. Comprobar los fondos y textos en el cliente, el modo de práctica y el flujo entre jugadores con dos clientes de la beta: descubrimiento, invitación, jugadas, relojes, resultados y desconexión.
+- Probar el motor de ajedrez, el bot, las opciones, el cambio de idioma y el inicio entre dos clientes simulados fuera de WoW. Comprobar los fondos y textos en el cliente, el modo de práctica y el flujo entre jugadores con dos clientes de la beta: descubrimiento, invitación, reintentos, jugadas, relojes, resultados y desconexión.
 - Documentar las limitaciones que solo puedan verificarse dentro del juego.

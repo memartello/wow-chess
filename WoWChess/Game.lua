@@ -3,13 +3,21 @@ local Game = { active = nil, incoming = nil, outgoing = nil, lastResult = nil }
 WC.Game = Game
 
 local function opposite(color) return color == "w" and "b" or "w" end
-local function same(a, b) return WC.Name(a) and WC.Name(a) == WC.Name(b) end
+local function same(a, b)
+    if not WC.Name(a) or not WC.Name(b) then return false end
+    if a:find("-", 1, true) and b:find("-", 1, true) then
+        return WC.Name(a) == WC.Name(b)
+    end
+    return WC.ShortName(a):lower() == WC.ShortName(b):lower()
+end
 local function newId() return tostring(time()) .. tostring(math.random(100000, 999999)) end
 local function validId(value) return type(value) == "string" and #value >= 6 and #value <= 32 and value:match("^%d+$") end
 
 function Game.Remaining(game, color)
     local value = game.remaining[color]
-    if game.state.turn == color then value = value - (GetTime() - game.turnStarted) end
+    if game.state.turn == color and (game.mode == "bot" or game.connected) then
+        value = value - (GetTime() - game.turnStarted)
+    end
     return math.max(0, value)
 end
 
@@ -37,6 +45,16 @@ function Game.Finish(reason, winner)
     end
     WC.Network.BroadcastPresence()
     if WC.UI then WC.UI.ShowResult(Game.lastResult) end
+end
+
+local function abortConnection()
+    local game = Game.active
+    Game.active = nil
+    if game and game.mode ~= "bot" then WC.Network.SendGame("CANCEL", game, "") end
+    WC.UI.ClearMoveNotification()
+    WC.Network.BroadcastPresence()
+    WC.UI.ShowMain()
+    WC.UI.SetStatus("No se pudo conectar con el rival.")
 end
 
 local function startBotTurn(game)
@@ -91,16 +109,20 @@ function Game.BotMove(move)
     if nextState.outcome then Game.Finish(nextState.outcome.reason, nextState.outcome.winner) end
 end
 
-local function start(opponent, id, white)
+local function start(opponent, id, white, inviteId, startMessage)
     Game.incoming, Game.outgoing, Game.lastResult = nil, nil, nil
     Game.active = {
-        id = id, opponent = opponent,
+        id = id, opponent = opponent, inviteId = inviteId, startMessage = startMessage,
         white = white, color = same(white, WC.me) and "w" or "b",
         state = WC.Chess.New(), remaining = { w = WC.GAME_SECONDS, b = WC.GAME_SECONDS },
-        turnStarted = GetTime(), lastPeer = GetTime(), lastPing = 0, seq = 0,
+        turnStarted = GetTime(), lastPeer = GetTime(), lastPing = GetTime(),
+        lastStart = GetTime(), connectExpires = GetTime() + WC.INVITE_SECONDS,
+        connected = false, seq = 0,
     }
     WC.Network.BroadcastPresence()
     WC.UI.ShowGame()
+    WC.UI.SetStatus("Conectando con el rival...")
+    WC.Network.SendGame("PING", Game.active, "0")
 end
 
 function Game.Challenge(target)
@@ -121,9 +143,12 @@ function Game.AcceptInvite()
     local invite = Game.incoming
     if not invite or invite.expires < GetTime() then return end
     invite.accepted = true
-    WC.Network.SendWhisper(invite.opponent, WC.VERSION .. "|ACC|" .. invite.id)
+    invite.expires = GetTime() + WC.INVITE_SECONDS
+    invite.retryAt = GetTime() + 2
+    local sent = WC.Network.SendWhisper(invite.opponent, WC.VERSION .. "|ACC|" .. invite.id)
+    if Game.active then return end
     WC.UI.HideInvite()
-    WC.UI.SetStatus("Reto aceptado. Preparando partida...")
+    WC.UI.SetStatus(sent and "Reto aceptado. Preparando partida..." or "Reintentando conexión con el rival...")
 end
 
 function Game.DeclineInvite()
@@ -137,6 +162,7 @@ end
 function Game.PlayMove(from, to, promotion)
     local game = Game.active
     if not game or game.state.turn ~= game.color then return false, "No es tu turno." end
+    if game.mode ~= "bot" and not game.connected then return false, "Esperando conexión con el rival." end
     charge(game)
     if game.remaining[game.color] <= 0 then
         if game.mode ~= "bot" then WC.Network.SendGame("TIMEOUT", game, "") end
@@ -161,6 +187,7 @@ end
 function Game.Resign()
     local game = Game.active
     if not game then return end
+    if game.mode ~= "bot" and not game.connected then abortConnection(); return end
     if game.mode ~= "bot" then WC.Network.SendGame("RESIGN", game, "") end
     Game.Finish("rendición", opposite(game.color))
 end
@@ -190,18 +217,45 @@ end
 
 function Game.Tick()
     local now = GetTime()
-    if Game.outgoing and now >= Game.outgoing.expires then
-        Game.outgoing = nil
-        WC.UI.SetStatus("El reto venció sin respuesta.")
+    if Game.outgoing then
+        local outgoing = Game.outgoing
+        if now >= outgoing.expires then
+            Game.outgoing = nil
+            WC.UI.SetStatus(outgoing.startMessage and "No se pudo conectar con el rival." or "El reto venció sin respuesta.")
+        elseif outgoing.startMessage and now >= outgoing.retryAt then
+            outgoing.retryAt = now + 2
+            if WC.Network.SendWhisper(outgoing.opponent, outgoing.startMessage) then
+                start(outgoing.opponent, outgoing.gameId, outgoing.white, outgoing.id, outgoing.startMessage)
+            end
+        end
     end
-    if Game.incoming and now >= Game.incoming.expires then
-        Game.incoming = nil
-        WC.UI.HideInvite()
-        WC.UI.SetStatus("La invitación venció.")
+    if Game.incoming then
+        local incoming = Game.incoming
+        if now >= incoming.expires then
+            Game.incoming = nil
+            WC.UI.HideInvite()
+            WC.UI.SetStatus(incoming.accepted and "No se pudo conectar con el rival." or "La invitación venció.")
+        elseif incoming.accepted and now >= incoming.retryAt then
+            incoming.retryAt = now + 2
+            WC.Network.SendWhisper(incoming.opponent, WC.VERSION .. "|ACC|" .. incoming.id)
+        end
     end
     local game = Game.active
     if not game then return end
     if game.mode ~= "bot" then
+        if not game.connected then
+            if now >= game.connectExpires then abortConnection(); return end
+            if game.startMessage and now - game.lastStart >= 2 then
+                WC.Network.SendWhisper(game.opponent, game.startMessage)
+                game.lastStart = now
+            end
+            if now - game.lastPing >= 2 then
+                WC.Network.SendGame("PING", game, tostring(game.seq))
+                game.lastPing = now
+            end
+            WC.UI.RefreshClocks()
+            return
+        end
         if now - game.lastPeer >= 20 then
             Game.Finish("desconexión", game.color)
             return
@@ -227,6 +281,16 @@ end
 function Game.OnMessage(action, parts, sender)
     local id = parts[3]
     if not validId(id) then return end
+    local active = Game.active
+    if active and active.mode ~= "bot" and active.inviteId == id and same(active.opponent, sender) then
+        if action == "ACC" and active.startMessage and not active.connected then
+            WC.Network.SendWhisper(sender, active.startMessage)
+            return
+        elseif action == "START" and parts[4] == active.id then
+            WC.Network.SendGame("PING", active, tostring(active.seq))
+            return
+        end
+    end
     if action == "INV" then
         if parts[4] ~= UnitFactionGroup("player") then
             WC.Network.SendWhisper(sender, WC.VERSION .. "|DEC|" .. id .. "|faction")
@@ -250,24 +314,39 @@ function Game.OnMessage(action, parts, sender)
         return
     end
     if action == "ACC" and Game.outgoing and Game.outgoing.id == id and same(Game.outgoing.opponent, sender) then
-        local white = math.random(2) == 1 and WC.me or sender
-        local gameId = newId()
-        if WC.Network.SendWhisper(sender, WC.VERSION .. "|START|" .. id .. "|" .. gameId .. "|" .. white) then
-            start(sender, gameId, white)
+        local outgoing = Game.outgoing
+        -- A short challenge name can resolve to a connected realm. Use the
+        -- sender returned by the client for all subsequent direct messages.
+        outgoing.opponent = sender
+        if not outgoing.startMessage then
+            outgoing.white = math.random(2) == 1 and WC.me or sender
+            outgoing.gameId = newId()
+            outgoing.startMessage = WC.VERSION .. "|START|" .. id .. "|" .. outgoing.gameId .. "|" .. outgoing.white
+            outgoing.expires = GetTime() + WC.INVITE_SECONDS
+        end
+        outgoing.retryAt = GetTime() + 2
+        if WC.Network.SendWhisper(sender, outgoing.startMessage) then
+            start(sender, outgoing.gameId, outgoing.white, id, outgoing.startMessage)
         else
-            WC.UI.SetStatus("No se pudo iniciar la partida.")
-            Game.outgoing = nil
+            WC.UI.SetStatus("Reintentando conexión con el rival...")
         end
         return
     end
     if action == "START" and Game.incoming and Game.incoming.accepted and Game.incoming.id == id and same(Game.incoming.opponent, sender) then
         local gameId, white = parts[4], parts[5]
-        if validId(gameId) and (same(white, sender) or same(white, WC.me)) then start(sender, gameId, white) end
+        if validId(gameId) and (same(white, sender) or same(white, WC.me)) then start(sender, gameId, white, id) end
         return
     end
     local game = Game.active
     if not game or game.id ~= id or not same(game.opponent, sender) then return end
     game.lastPeer = GetTime()
+    if action == "CANCEL" and game.seq == 0 then abortConnection(); return end
+    if action == "PING" and not game.connected then
+        game.connected = true
+        game.turnStarted = GetTime()
+        WC.UI.SetStatus("")
+        WC.Network.SendGame("PING", game, tostring(game.seq))
+    end
     if action == "PING" then return end
     if action == "MOVE" then
         local seq, from, to, promotion, centiseconds = tonumber(parts[4]), parts[5], parts[6], parts[7], tonumber(parts[8])
@@ -282,6 +361,11 @@ function Game.OnMessage(action, parts, sender)
         local remoteColor = opposite(game.color)
         local reported = centiseconds / 100
         if reported > game.remaining[remoteColor] + 1 then WC.UI.SetStatus("Reloj del rival inconsistente."); return end
+        if not game.connected then
+            game.connected = true
+            game.turnStarted = GetTime()
+            WC.UI.SetStatus("")
+        end
         game.remaining[remoteColor] = reported
         game.state = nextState
         game.seq = seq

@@ -104,6 +104,10 @@ local english = {
     ["Español"] = "Spanish",
     ["Inglés"] = "English",
     ["Los cambios se aplican de inmediato."] = "Changes apply immediately.",
+    ["Conectando con el rival..."] = "Connecting to your opponent...",
+    ["Reintentando conexión con el rival..."] = "Retrying the connection to your opponent...",
+    ["Esperando conexión con el rival."] = "Waiting for your opponent to connect.",
+    ["No se pudo conectar con el rival."] = "Could not connect to your opponent.",
     ["Tu turno: el rival movió."] = "Your turn: your opponent moved.",
     ["Abrir WoW Chess"] = "Open WoW Chess",
 }

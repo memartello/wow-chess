@@ -45,6 +45,9 @@ assert(ok and game.outgoing)
 local inviteId = game.outgoing.id
 game.OnMessage("ACC", { "1", "ACC", inviteId }, "Bob-Realm")
 assert(game.active and game.active.opponent == "Bob-Realm")
+assert(not game.active.connected, "clock waits for peer handshake")
+game.OnMessage("PING", { "1", "PING", game.active.id, "0" }, "Bob-Realm")
+assert(game.active.connected, "peer handshake completes")
 game.active.color = "w"
 now = now + 2
 assert(game.PlayMove(WC.Chess.Square("e2"), WC.Chess.Square("e4")))
@@ -67,6 +70,7 @@ game.AcceptInvite()
 assert(game.incoming.accepted)
 game.OnMessage("START", { "1", "START", "123456999998", "123456111111", "Alice-Realm" }, "Bob-Realm")
 assert(game.active and game.active.color == "w")
+game.OnMessage("PING", { "1", "PING", game.active.id, "0" }, "Bob-Realm")
 game.active.remaining.w = 1
 now = now + 2
 game.Tick()
