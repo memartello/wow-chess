@@ -82,9 +82,11 @@ end
 local function startBotTurn(game)
     if not game or game.mode ~= "bot" or game.state.turn == game.color then return end
     WC.UI.SetStatus("El bot está pensando...")
-    local id, seq = game.id, game.seq
+    game.botSearchVersion = (game.botSearchVersion or 0) + 1
+    local id, seq, version = game.id, game.seq, game.botSearchVersion
     WC.Bot.Start(game.state, function(move)
-        if Game.active and Game.active.id == id and Game.active.seq == seq then Game.BotMove(move) end
+        if Game.active and Game.active.id == id and Game.active.seq == seq and
+            Game.active.botSearchVersion == version then Game.BotMove(move) end
     end, game.difficulty)
 end
 
@@ -102,7 +104,7 @@ function Game.StartBot(difficulty, color)
         id = newId(), mode = "bot", opponent = opponent, difficulty = difficulty,
         white = color == "w" and WC.me or opponent, color = color,
         state = WC.Chess.New(), remaining = { w = WC.GAME_SECONDS, b = WC.GAME_SECONDS },
-        turnStarted = GetTime(), seq = 0,
+        turnStarted = GetTime(), seq = 0, undoTurns = {}, botSearchVersion = 0,
     }
     WC.Network.BroadcastPresence()
     WC.UI.SetStatus("")
@@ -132,6 +134,26 @@ function Game.BotMove(move)
     WC.UI.RefreshGame()
     WC.UI.NotifyOpponentMove()
     if nextState.outcome then Game.Finish(nextState.outcome.reason, nextState.outcome.winner) end
+end
+
+function Game.CanUndoBotTurn()
+    local game = Game.active
+    return game and game.mode == "bot" and game.undoTurns and #game.undoTurns > 0 or false
+end
+
+function Game.UndoBotTurn()
+    if not Game.CanUndoBotTurn() then return false end
+    local game = Game.active
+    WC.Bot.Stop()
+    game.botSearchVersion = game.botSearchVersion + 1
+    local previous = table.remove(game.undoTurns)
+    game.state, game.seq = previous.state, previous.seq
+    game.remaining.w, game.remaining.b = previous.whiteTime, previous.blackTime
+    game.turnStarted = GetTime()
+    WC.UI.ClearMoveNotification()
+    WC.UI.SetStatus("")
+    WC.UI.RefreshGame()
+    return true
 end
 
 local function start(opponent, peerSender, id, whiteRole, localRole, inviteId, startMessage)
@@ -208,6 +230,12 @@ function Game.PlayMove(from, to, promotion)
     if game.mode ~= "bot" then
         local payload = table.concat({ tostring(game.seq + 1), WC.Chess.Name(from), WC.Chess.Name(to), promotion or "-", tostring(math.floor(game.remaining[game.color] * 100 + .5)) }, "|")
         if not WC.Network.SendGame("MOVE", game, payload) then return false, "No se pudo enviar la jugada." end
+    end
+    if game.mode == "bot" then
+        game.undoTurns[#game.undoTurns + 1] = {
+            state = game.state, seq = game.seq,
+            whiteTime = game.remaining.w, blackTime = game.remaining.b,
+        }
     end
     game.state = nextState
     game.seq = game.seq + 1

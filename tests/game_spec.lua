@@ -58,6 +58,7 @@ assert(game.active.seq == 2 and game.active.state.board[WC.Chess.Square("e5")] =
 assert(notices == 1, "opponent move notification")
 game.OnMessage("MOVE", { "6", "MOVE", id, "2", "e7", "e5", "-", "59900" }, "Bob-Realm")
 assert(game.active.seq == 2 and notices == 1, "duplicates do not notify")
+assert(not game.CanUndoBotTurn() and not game.UndoBotTurn(), "peer games cannot be rewound")
 now = now + 21
 game.Tick()
 assert(not game.active and WC.db.stats.wins == 1, "desconexión")
@@ -81,19 +82,43 @@ game.Tick()
 assert(not game.active and WC.db.stats.losses == 1, "tiempo agotado")
 
 local messagesBeforeBot = #sent
-assert(game.StartBot())
-assert(game.active.mode == "bot")
-if game.active.color == "w" then
-    assert(game.PlayMove(WC.Chess.Square("e2"), WC.Chess.Square("e4")))
-end
+assert(game.StartBot("intermediate", "w"))
+assert(game.active.mode == "bot" and not game.CanUndoBotTurn())
+local initialState = game.active.state
+now = now + 2
+assert(game.PlayMove(WC.Chess.Square("e2"), WC.Chess.Square("e4")))
 assert(botThinking, "el bot debe recibir el turno")
 local firstBotMove = WC.Chess.AllLegalMoves(botThinking.state)[1]
+local staleCallback = botThinking.callback
+assert(game.CanUndoBotTurn() and game.UndoBotTurn(), "undo stops a pending bot turn")
+assert(game.active.state == initialState and game.active.seq == 0 and
+    game.active.remaining.w == 598 and game.active.remaining.b == 600 and
+    not game.CanUndoBotTurn(), "undo restores the position and both clocks")
+staleCallback(firstBotMove)
+assert(game.active.seq == 0, "an interrupted bot search cannot move after undo")
+assert(game.PlayMove(WC.Chess.Square("e2"), WC.Chess.Square("e4")))
+staleCallback(firstBotMove)
+assert(game.active.seq == 1, "an old callback stays invalid after replaying the same move number")
 botThinking.callback(firstBotMove)
-assert(game.active and game.active.mode == "bot" and game.active.seq >= 1)
+assert(game.active and game.active.mode == "bot" and game.active.seq == 2)
 assert(notices == 2, "bot move notification")
+assert(game.UndoBotTurn() and game.active.state == initialState and game.active.seq == 0 and
+    game.active.state.turn == "w" and game.active.remaining.w == 598,
+    "undo after the bot reply takes back the full turn")
 assert(#sent == messagesBeforeBot, "la práctica no debe enviar mensajes de partida")
 game.Resign()
 assert(not game.active and WC.db.stats.wins == 1 and WC.db.stats.losses == 1, "la práctica no altera estadísticas PvP")
+assert(game.StartBot("easy", "b"))
+assert(not game.CanUndoBotTurn(), "the bot's opening move cannot be undone before the player moves")
+local opening = WC.Chess.AllLegalMoves(botThinking.state)[1]
+botThinking.callback(opening)
+local beforeBlackMove = game.active.state
+assert(beforeBlackMove.turn == "b" and not game.CanUndoBotTurn())
+local blackMove = WC.Chess.AllLegalMoves(beforeBlackMove)[1]
+assert(game.PlayMove(blackMove.from, blackMove.to, blackMove.promotion))
+assert(game.UndoBotTurn() and game.active.state == beforeBlackMove and game.active.seq == 1 and
+    game.active.state.turn == "b", "undo as black keeps the bot's opening move")
+game.Resign()
 assert(clears >= 3, "finished games clear notifications")
 
 print("game_spec: OK")

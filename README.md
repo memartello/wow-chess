@@ -55,7 +55,7 @@ La versión instalada también aparece en la esquina inferior derecha de la pant
 
 ## Cómo jugar
 
-Para practicar, abrí la pantalla principal y pulsá **Jugar con bot**. Elegí dificultad fácil, intermedia o difícil, seleccioná si querés jugar con blancas o negras y pulsá **Empezar partida**. El bot juega localmente; cada lado tiene 10 minutos. Las partidas de práctica no modifican las estadísticas contra otros jugadores.
+Para practicar, abrí la pantalla principal y pulsá **Jugar con bot**. Elegí dificultad fácil, intermedia o difícil, seleccioná si querés jugar con blancas o negras y pulsá **Empezar partida**. El bot juega localmente; cada lado tiene 10 minutos. **Deshacer turno** vuelve a la posición anterior a tu última jugada, incluso si el bot ya respondió; también detiene al bot si todavía está pensando. El reloj vuelve al tiempo que quedaba al hacer esa jugada. Las partidas de práctica no modifican las estadísticas contra otros jugadores.
 
 Para jugar contra otra persona:
 
@@ -66,7 +66,7 @@ Para jugar contra otra persona:
 5. En tu turno, hacé clic en una de tus piezas y luego en una casilla marcada. Si un peón promociona, elegí dama, torre, alfil o caballo. En **Movimientos**, hacé clic en una jugada de blancas o negras para resaltar sus casillas de origen y destino en el tablero actual; esto no retrocede ni modifica la partida.
 6. El reloj de cada jugador corre durante su turno. Podés **Ofrecer tablas**, **Rendirte** o volver a la lista sin abandonar la partida; **Volver a partida** la reabre. La opción **Volver a la lista** abre explícitamente la pantalla principal. Quedarse sin tiempo o desconectarse causa derrota.
 
-Cuando el bot o tu rival hace una jugada, suena la alerta de solicitud del buscador de grupos de WoW y el borde dorado del icono de ajedrez junto al minimapa emite una luz pulsante para avisarte que es tu turno. El sonido se reproduce una sola vez por aviso; la luz continúa hasta que pulsás el icono para abrir la partida, interactuás con el tablero o termina la partida. Arrastrá el icono con el botón izquierdo para moverlo por todo el borde del minimapa; la posición se guarda para la próxima sesión.
+Cuando el bot o tu rival hace una jugada, suena la alerta de solicitud del buscador de grupos de WoW. El borde dorado del icono de ajedrez junto al minimapa pulsa, el icono se ilumina y aparecen dos pequeños puntos de luz para avisarte que es tu turno. El sonido se reproduce una sola vez por aviso; las luces continúan hasta que pulsás el icono para abrir la partida, interactuás con el tablero o termina la partida. Arrastrá el icono con el botón izquierdo para moverlo por todo el borde del minimapa; la posición se guarda para la próxima sesión.
 
 Cada personaje puede mantener una sola partida activa. Se admiten enroque, captura al paso, jaque mate, ahogado y tablas por material insuficiente, triple repetición, 50 movimientos o acuerdo entre jugadores.
 
@@ -74,7 +74,11 @@ En la pantalla de partida, una sección separada encima del tablero muestra el n
 
 ## Opciones
 
-En la pantalla principal, abrí **Opciones** (engranaje) en el menú lateral. En **Tablero** podés elegir el tablero cuadrado, los tableros de la Horda, los no-muertos y los elfos, el fondo ilustrado de Durotar o el tablero clásico de dos colores. Si no hay una elección guardada, los personajes de la Horda usan su tablero y los de la Alianza el tablero cuadrado. En **Piezas** podés elegir las piezas básicas o las humanas contra orcos. **Coordenadas del tablero** permite mostrar u ocultar los rangos (1–8) y las columnas (a–h), ubicados dentro de las casillas del borde. Están activadas por defecto; las elecciones guardadas se conservan. En **Idioma** podés elegir español o inglés. Los cambios se aplican en el momento y se conservan al volver a entrar. Si todavía no elegiste un idioma, el addon usa inglés cuando el cliente está en inglés y español en los demás casos.
+En la pantalla principal, abrí **Opciones** (engranaje) en el menú lateral. En **Tablero** podés elegir el tablero cuadrado, los tableros de la Horda, los no-muertos y los elfos, o el tablero clásico de dos colores. Si no hay una elección guardada, los personajes de la Horda usan su tablero y los de la Alianza el tablero cuadrado. Una elección anterior de Durotar vuelve al tablero predeterminado de la facción. En **Piezas** elegís por separado el aspecto de las blancas y las negras: básicas, humanas, orcas, élficas o no-muertas. Cada aspecto usa su variante clara u oscura según el color. Las elecciones anteriores por parejas se convierten a las dos selecciones independientes. El aspecto de las piezas no cambia las blancas y negras de la partida. **Coordenadas del tablero** permite mostrar u ocultar los rangos (1–8) y las columnas (a–h), ubicados dentro de las casillas del borde. Están activadas por defecto; las elecciones guardadas se conservan. En **Idioma** podés elegir español o inglés. Los cambios se aplican en el momento y se conservan al volver a entrar. Si todavía no elegiste un idioma, el addon usa inglés cuando el cliente está en inglés y español en los demás casos.
+
+**Tamaño de ventanas** ofrece Pequeño (85 %), Normal (100 %) y Grande (115 %) para la pantalla principal, la partida y las ventanas emergentes. El tamaño elegido se guarda; si la pantalla es más pequeña, la ventana se ajusta al espacio disponible.
+
+**Sonidos** permite desactivar el aviso de turno o silenciarlo solo mientras una ventana del addon está abierta. El pulso del icono del minimapa sigue visible. **Opacidad de paneles** ajusta entre 40 % y 100 % el fondo y los bordes de las ventanas y sus paneles interiores, sin atenuar los textos ni las piezas. Ambas preferencias se guardan y se aplican de inmediato.
 
 ## Estructura
 

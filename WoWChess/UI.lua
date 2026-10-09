@@ -1,5 +1,7 @@
 local _, WC = ...
-local UI = { selected = nil, legal = {}, cells = {}, playerRows = {}, localized = {}, mainSection = "home", moveNotice = false }
+local UI = { selected = nil, legal = {}, cells = {}, playerRows = {}, localized = {},
+    opacityTextures = setmetatable({}, { __mode = "k" }),
+    mainSection = "home", moveNotice = false }
 WC.UI = UI
 
 local GOLD = { .98, .77, .31, 1 }
@@ -15,6 +17,17 @@ local function colorTexture(parent, layer, r, g, b, a)
     local texture = parent:CreateTexture(nil, layer or "BACKGROUND")
     texture:SetColorTexture(r, g, b, a)
     return texture
+end
+
+local function opacityTexture(texture)
+    UI.opacityTextures[texture] = true
+    texture:SetAlpha(WC.Theme.FrameOpacity())
+    return texture
+end
+
+function UI.RefreshFrameOpacity()
+    local opacity = WC.Theme.FrameOpacity()
+    for texture in pairs(UI.opacityTextures) do texture:SetAlpha(opacity) end
 end
 
 local function box(parent, width, height)
@@ -43,6 +56,7 @@ local function skinPanel(frame, center, cap, layer, openTop)
             if (center or row ~= 2 or col ~= 2) and (not openTop or row ~= 1) then
                 local part = frame:CreateTexture(nil, layer or "BORDER")
                 part:SetTexture(WC.assetRoot .. HOME_PANEL)
+                opacityTexture(part)
                 part:SetTexCoord(source[col], source[col + 1], vertical[row], vertical[row + 1])
                 if row == 1 then part:SetPoint("TOP", 0, 0); part:SetHeight(cap)
                 elseif row == 3 then part:SetPoint("BOTTOM", 0, 0); part:SetHeight(cap)
@@ -195,10 +209,20 @@ function UI.NotifyOpponentMove()
     local game = WC.Game.active
     if not game or game.state.outcome or game.state.turn ~= game.color or UI.moveNotice then return end
     UI.moveNotice = true
-    if PlaySound then pcall(PlaySound, SOUNDKIT and SOUNDKIT.UI_GROUP_FINDER_RECEIVE_APPLICATION or 47615) end
+    local settings = WC.db and WC.db.settings or {}
+    local windowOpen = false
+    for _, key in ipairs({ "main", "gameFrame", "botSetup", "invite", "draw", "promotion", "resultModal" }) do
+        if UI[key] and UI[key]:IsShown() then windowOpen = true; break end
+    end
+    if settings.soundsEnabled ~= false and (not settings.muteWhenOpen or not windowOpen) and PlaySound then
+        pcall(PlaySound, SOUNDKIT and SOUNDKIT.UI_GROUP_FINDER_RECEIVE_APPLICATION or 47615)
+    end
     if UI.moveBorderGlow then UI.moveBorderGlow:Show() end
     if UI.moveGlow then UI.moveGlow:Show() end
     if UI.movePulse then UI.movePulse:Play() end
+    if UI.moveIconGlow then UI.moveIconGlow:Show() end
+    if UI.moveIconPulse then UI.moveIconPulse:Play() end
+    for _, light in ipairs(UI.moveIconLights or {}) do light:Show() end
 end
 
 function UI.ClearMoveNotification()
@@ -206,6 +230,9 @@ function UI.ClearMoveNotification()
     if UI.movePulse then UI.movePulse:Stop() end
     if UI.moveGlow then UI.moveGlow:Hide() end
     if UI.moveBorderGlow then UI.moveBorderGlow:Hide() end
+    if UI.moveIconPulse then UI.moveIconPulse:Stop() end
+    if UI.moveIconGlow then UI.moveIconGlow:Hide() end
+    for _, light in ipairs(UI.moveIconLights or {}) do light:Hide() end
 end
 
 function UI.SetMainSection(section)
@@ -248,7 +275,7 @@ local function checkerPreview(parent, width, top)
 end
 
 local function makeMain()
-    local main = box(UIParent, 1040, 700)
+    local main = box(UIParent, 1040, 850)
     skinPanel(main, true, 24)
     main:SetPoint("CENTER")
     main:SetFrameStrata("DIALOG")
@@ -260,7 +287,7 @@ local function makeMain()
     titlebar(main, "WoW Chess", function() main:Hide() end)
     UI.main = main
 
-    local sidebar = box(main, 174, 620)
+    local sidebar = box(main, 174, 770)
     sidebar:SetPoint("TOPLEFT", 12, -56)
     skinPanel(sidebar, true, 17)
     local menus = {
@@ -279,7 +306,7 @@ local function makeMain()
         UI.mainNav[#UI.mainNav + 1] = { button = menuButton, section = menu.section }
     end
 
-    local content = box(main, 600, 620)
+    local content = box(main, 600, 770)
     content:SetPoint("TOPLEFT", 195, -56)
     content.fill:Hide()
     local parchment = content:CreateTexture(nil, "BACKGROUND")
@@ -287,6 +314,7 @@ local function makeMain()
     parchment:SetPoint("TOPLEFT", 2, -152)
     parchment:SetPoint("BOTTOMRIGHT", -2, 2)
     UI.homeParchment = parchment
+    opacityTexture(parchment)
     UI.homeContent = content
     skinPanel(content, false, 10, "OVERLAY", true)
     local banner = box(content, 600, 136)
@@ -300,6 +328,7 @@ local function makeMain()
     caption:SetPoint("BOTTOMLEFT", 3, 3)
     caption:SetPoint("BOTTOMRIGHT", -3, 3)
     caption:SetHeight(72)
+    opacityTexture(caption)
     local bannerTitle = label(banner, "Desafiá jugadores de Azeroth", "large")
     bannerTitle:SetPoint("BOTTOMLEFT", 16, 44)
     local bannerText = label(banner, "Ajedrez en tiempo real dentro de WoW: Forever.", nil, MUTED)
@@ -380,6 +409,7 @@ local function makeMain()
         local row = box(playerList, 566, 31)
         row.border:Hide()
         row.fill:SetColorTexture(.25, .14, .055, .32)
+        opacityTexture(row.fill)
         if i % 2 == 0 then row.fill:Hide() end
         row:SetPoint("TOPLEFT", 1, -52 - (i - 1) * 33)
         row.name = label(row, "", nil, INK)
@@ -414,17 +444,20 @@ local function makeMain()
     empty:SetPoint("TOPLEFT", 12, -60)
     UI.emptyPlayers = empty
 
-    local right = box(main, 224, 620)
+    local right = box(main, 224, 770)
     right:SetPoint("TOPRIGHT", -12, -56)
     skinPanel(right, true, 17)
     local profileTitle = label(right, "Tu perfil", "large")
     profileTitle:SetPoint("TOPLEFT", 12, -14)
-    local portraitFrame = box(right, 62, 62)
+    local portraitFrame = CreateFrame("Frame", nil, right)
+    portraitFrame:SetSize(62, 62)
     portraitFrame:SetPoint("TOPLEFT", 8, -42)
-    portraitFrame.fill:SetColorTexture(.025, .02, .015, 1)
     local portrait = portraitFrame:CreateTexture(nil, "ARTWORK")
-    portrait:SetPoint("TOPLEFT", 3, -3)
-    portrait:SetPoint("BOTTOMRIGHT", -3, 3)
+    portrait:SetSize(56, 56)
+    portrait:SetPoint("CENTER")
+    local portraitRing = portraitFrame:CreateTexture(nil, "OVERLAY")
+    portraitRing:SetTexture(WC.assetRoot .. "profile_round_frame.png")
+    portraitRing:SetAllPoints()
     UI.profilePortrait = portrait
     local ownName = label(right, WC.ShortName(WC.me), nil)
     ownName:SetPoint("TOPLEFT", 76, -53)
@@ -447,7 +480,9 @@ local function makeMain()
     UI.boardPreview = preview
     UI.classicPreview = checkerPreview(right, 142, -367)
     UI.previewText = label(right, "", nil, MUTED, "CENTER")
-    UI.previewText:SetPoint("BOTTOM", 0, 15)
+    UI.previewText:SetPoint("TOP", 0, -550)
+    UI.previewText:SetWidth(196)
+    UI.previewText:SetWordWrap(true)
     for _, top in ipairs({ 164, 291 }) do
         local rule = colorTexture(right, "ARTWORK", .68, .43, .17, .75)
         rule:SetPoint("TOPLEFT", 13, -top)
@@ -455,7 +490,7 @@ local function makeMain()
         rule:SetHeight(1)
     end
 
-    local options = box(main, 600, 620)
+    local options = box(main, 600, 770)
     options:SetPoint("TOPLEFT", 195, -56)
     skinPanel(options, true, 17)
     UI.optionsContent = options
@@ -478,46 +513,101 @@ local function makeMain()
         UI.boardButtons[background.id] = choice
     end
     local piecesTitle = label(options, "Piezas", "large")
-    piecesTitle:SetPoint("TOPLEFT", 20, -247)
-    local piecesHint = label(options, "Elegí el aspecto de las piezas.", nil, MUTED)
-    piecesHint:SetPoint("TOPLEFT", 20, -277)
-    UI.pieceButtons = {}
-    for i, set in ipairs(WC.Theme.pieceSets) do
-        local choice = button(options, set.name, 254, 48, function()
-            WC.Theme.SetPieceSet(set.id)
-            UI.RefreshTheme()
-            UI.RefreshSettings()
-        end)
-        choice:SetPoint("TOPLEFT", 20 + (i - 1) * 274, -308)
-        skinButton(choice, "dark")
-        UI.pieceButtons[set.id] = choice
+    piecesTitle:SetPoint("TOPLEFT", 20, -240)
+    UI.pieceButtons = { w = {}, b = {} }
+    for _, side in ipairs({ { "w", "Blancas", -270, -292 }, { "b", "Negras", -339, -361 } }) do
+        local color = side[1]
+        local title = label(options, side[2], nil, GOLD)
+        title:SetPoint("TOPLEFT", 20, side[3])
+        for i, style in ipairs(WC.Theme.pieceStyles) do
+            local choice = button(options, WC.Theme.PieceStyleName(style, color), 108, 38, function()
+                WC.Theme.SetPieceStyle(color, style.id)
+                UI.RefreshTheme()
+                UI.RefreshSettings()
+            end)
+            choice:SetPoint("TOPLEFT", 20 + (i - 1) * 112, side[4])
+            skinButton(choice, "dark")
+            UI.pieceButtons[color][style.id] = choice
+        end
     end
     local languageTitle = label(options, "Idioma", "large")
-    languageTitle:SetPoint("TOPLEFT", 20, -380)
+    languageTitle:SetPoint("TOPLEFT", 20, -406)
     local languageHint = label(options, "Elegí el idioma de la interfaz.", nil, MUTED)
-    languageHint:SetPoint("TOPLEFT", 20, -410)
+    languageHint:SetPoint("TOPLEFT", 20, -432)
     UI.languageButtons = {}
     for i, choice in ipairs({ { "es", "Español" }, { "en", "Inglés" } }) do
         local language = choice[1]
-        local selection = button(options, choice[2], 254, 54, function()
+        local selection = button(options, choice[2], 254, 45, function()
             WC.SetLanguage(language)
             UI.RefreshLanguage()
         end)
-        selection:SetPoint("TOPLEFT", 20 + (i - 1) * 274, -441)
+        selection:SetPoint("TOPLEFT", 20 + (i - 1) * 274, -452)
         skinButton(selection, "dark")
         UI.languageButtons[language] = selection
     end
     local coordinateTitle = label(options, "Coordenadas del tablero", "large")
-    coordinateTitle:SetPoint("TOPLEFT", 20, -502)
-    UI.coordinateButton = button(options, "", 254, 42, function()
+    coordinateTitle:SetPoint("TOPLEFT", 20, -505)
+    UI.coordinateButton = button(options, "", 254, 40, function()
         WC.Theme.SetCoordinatesEnabled(not WC.Theme.CoordinatesEnabled())
         UI.RefreshCoordinates()
         UI.RefreshSettings()
     end)
-    UI.coordinateButton:SetPoint("TOPLEFT", 20, -529)
+    UI.coordinateButton:SetPoint("TOPLEFT", 20, -531)
     skinButton(UI.coordinateButton, "dark")
+    local windowSizeTitle = label(options, "Tamaño de ventanas", "large")
+    windowSizeTitle:SetPoint("TOPLEFT", 300, -505)
+    UI.windowSizeButtons = {}
+    for i, size in ipairs(WC.Theme.windowSizes) do
+        local choice = button(options, size.name, 88, 40, function()
+            WC.Theme.SetWindowSize(size.id)
+            UI.RefreshWindowScale()
+            UI.RefreshSettings()
+        end)
+        choice:SetPoint("TOPLEFT", 300 + (i - 1) * 92, -531)
+        skinButton(choice, "dark")
+        UI.windowSizeButtons[size.id] = choice
+    end
+    local soundsTitle = label(options, "Sonidos", "large")
+    soundsTitle:SetPoint("TOPLEFT", 20, -586)
+    UI.soundButton = button(options, "", 254, 40, function()
+        WC.db.settings.soundsEnabled = WC.db.settings.soundsEnabled == false
+        UI.RefreshSettings()
+    end)
+    UI.soundButton:SetPoint("TOPLEFT", 20, -611)
+    skinButton(UI.soundButton, "dark")
+    UI.muteWhenOpenButton = button(options, "", 254, 40, function()
+        WC.db.settings.muteWhenOpen = not WC.db.settings.muteWhenOpen
+        UI.RefreshSettings()
+    end)
+    UI.muteWhenOpenButton:SetPoint("TOPLEFT", 294, -611)
+    skinButton(UI.muteWhenOpenButton, "dark")
+    local opacityTitle = label(options, "Opacidad de paneles", "large")
+    opacityTitle:SetPoint("TOPLEFT", 20, -667)
+    UI.opacityValue = label(options, "", nil, GOLD, "RIGHT")
+    UI.opacityValue:SetPoint("TOPRIGHT", -20, -669)
+    UI.opacityValue:SetWidth(80)
+    local slider = CreateFrame("Slider", nil, options)
+    slider:SetOrientation("HORIZONTAL")
+    slider:SetSize(528, 20)
+    slider:SetPoint("TOPLEFT", 20, -697)
+    slider:SetMinMaxValues(40, 100)
+    slider:SetValueStep(5)
+    local track = colorTexture(slider, "BACKGROUND", .18, .12, .07, 1)
+    track:SetPoint("LEFT", 0, 0)
+    track:SetPoint("RIGHT", 0, 0)
+    track:SetHeight(8)
+    opacityTexture(track)
+    slider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+    slider:SetValue(WC.Theme.FrameOpacity() * 100)
+    slider:SetScript("OnValueChanged", function(_, value)
+        if WC.Theme.SetFrameOpacity(value / 100) then
+            UI.RefreshFrameOpacity()
+            UI.opacityValue:SetText(math.floor(value + .5) .. "%")
+        end
+    end)
+    UI.opacitySlider = slider
     local applyHint = label(options, "Los cambios se aplican de inmediato.", nil, MUTED)
-    applyHint:SetPoint("TOPLEFT", 20, -574)
+    applyHint:SetPoint("TOPLEFT", 20, -740)
     options:Hide()
 
     UI.mainStatus = label(main, "", nil, MUTED)
@@ -537,10 +627,19 @@ local function squareAt(row, col, color)
     return (rank - 1) * 8 + file
 end
 
-local function fitGameFrame(frame)
+local function fitWindow(frame)
+    local scale = WC.Theme.WindowSize().scale
     local width, height = UIParent:GetWidth() - 24, UIParent:GetHeight() - 24
     if width > 0 and height > 0 then
-        frame:SetScale(math.min(1, width / GAME_WIDTH, height / GAME_HEIGHT))
+        scale = math.min(scale, width / frame:GetWidth(), height / frame:GetHeight())
+    end
+    frame:SetScale(scale)
+end
+
+function UI.RefreshWindowScale()
+    for _, key in ipairs({ "main", "gameFrame", "botSetup", "invite", "draw", "promotion", "resultModal" }) do
+        local frame = UI[key]
+        if frame then fitWindow(frame) end
     end
 end
 
@@ -548,7 +647,7 @@ local function makeGame()
     local frame = box(UIParent, GAME_WIDTH, GAME_HEIGHT)
     skinPanel(frame, true, 24)
     frame:SetPoint("CENTER")
-    fitGameFrame(frame)
+    fitWindow(frame)
     frame:SetFrameStrata("DIALOG")
     frame:SetMovable(true)
     frame:EnableMouse(true)
@@ -598,6 +697,7 @@ local function makeGame()
         local name = label(bar, "", "large")
         name:SetPoint("TOPLEFT", 12, -6)
         name:SetWidth(188)
+        name:SetWordWrap(false)
         local clock = label(bar, "10:00", "large", GOLD, "RIGHT")
         clock:SetPoint("TOPRIGHT", -12, -6)
         clock:SetWidth(90)
@@ -711,6 +811,14 @@ local function makeGame()
     UI.drawButton = button(right, "Ofrecer tablas", 300, 40, function() WC.Game.OfferDraw() end)
     UI.drawButton:SetPoint("TOPLEFT", 16, -604)
     skinButton(UI.drawButton, "dark")
+    UI.undoButton = button(right, "Deshacer turno", 300, 40, function()
+        if not WC.Game.CanUndoBotTurn() then return end
+        UI.selected, UI.legal, UI.highlightedMove = nil, {}, nil
+        UI.selectedPiece:SetText(WC.L("Ninguna"))
+        WC.Game.UndoBotTurn()
+    end)
+    UI.undoButton:SetPoint("TOPLEFT", 16, -604)
+    skinButton(UI.undoButton, "dark")
     UI.backButton = button(right, "Volver a la lista", 300, 38, function() frame:Hide(); UI.ShowMain() end)
     UI.backButton:SetPoint("TOPLEFT", 16, -656)
     skinButton(UI.backButton, "dark")
@@ -722,6 +830,28 @@ local function makeGame()
 end
 
 function UI.RefreshSettings()
+    if UI.soundButton then
+        local enabled = WC.db.settings.soundsEnabled ~= false
+        UI.soundButton:SetCaption(WC.L("Sonido de turno") .. ": " .. WC.L(enabled and "Sí" or "No"))
+        UI.soundButton.warcraftBase = enabled and "gold" or "dark"
+        setButtonTone(UI.soundButton, UI.soundButton.warcraftBase)
+        local muted = WC.db.settings.muteWhenOpen == true
+        UI.muteWhenOpenButton:SetCaption(WC.L("Silenciar con ventana abierta") .. ": " .. WC.L(muted and "Sí" or "No"))
+        UI.muteWhenOpenButton.warcraftBase = muted and "gold" or "dark"
+        setButtonTone(UI.muteWhenOpenButton, UI.muteWhenOpenButton.warcraftBase)
+    end
+    if UI.opacityValue then
+        UI.opacityValue:SetText(math.floor(WC.Theme.FrameOpacity() * 100 + .5) .. "%")
+    end
+    if UI.windowSizeButtons then
+        local selected = WC.Theme.WindowSize().id
+        for _, size in ipairs(WC.Theme.windowSizes) do
+            local choice = UI.windowSizeButtons[size.id]
+            choice:SetCaption(WC.L(size.name))
+            choice.warcraftBase = selected == size.id and "gold" or "dark"
+            setButtonTone(choice, choice.warcraftBase)
+        end
+    end
     if UI.boardButtons then
         local selected = WC.Theme.Background().id
         for _, background in ipairs(WC.Theme.backgrounds) do
@@ -732,12 +862,14 @@ function UI.RefreshSettings()
         end
     end
     if UI.pieceButtons then
-        local selected = WC.Theme.PieceSet().id
-        for _, set in ipairs(WC.Theme.pieceSets) do
-            local choice = UI.pieceButtons[set.id]
-            choice:SetCaption(WC.L(set.name))
-            choice.warcraftBase = selected == set.id and "gold" or "dark"
-            setButtonTone(choice, choice.warcraftBase)
+        for _, color in ipairs({ "w", "b" }) do
+            local selected = WC.Theme.PieceStyle(color).id
+            for _, style in ipairs(WC.Theme.pieceStyles) do
+                local choice = UI.pieceButtons[color][style.id]
+                choice:SetCaption(WC.L(WC.Theme.PieceStyleName(style, color)))
+                choice.warcraftBase = selected == style.id and "gold" or "dark"
+                setButtonTone(choice, choice.warcraftBase)
+            end
         end
     end
     if UI.languageButtons then
@@ -829,7 +961,11 @@ function UI.RefreshTheme()
     end
     if UI.classicPreview then UI.classicPreview:SetShown(plain) end
     if UI.previewText then
-        UI.previewText:SetText(WC.L(background.name) .. " · " .. WC.L(WC.Theme.PieceSet().name))
+        local white = WC.Theme.PieceStyle("w")
+        local black = WC.Theme.PieceStyle("b")
+        UI.previewText:SetText(WC.L(background.name) .. "\n" .. WC.L("Blancas") .. ": " ..
+            WC.L(WC.Theme.PieceStyleName(white, "w")) .. " · " .. WC.L("Negras") .. ": " ..
+            WC.L(WC.Theme.PieceStyleName(black, "b")))
     end
     UI.RefreshCoordinates()
     if WC.Game.active and UI.cells[1] then UI.RefreshGame() end
@@ -854,6 +990,7 @@ local function modal(title, message, actions)
     local frame = box(UIParent, 380, 154)
     skinPanel(frame, true, 16)
     frame:SetPoint("CENTER")
+    fitWindow(frame)
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
     local heading = label(frame, title, "large")
     heading:SetPoint("TOP", 0, -18)
@@ -893,6 +1030,7 @@ end
 
 function UI.ShowBotSetup()
     if UI.botSetup then
+        fitWindow(UI.botSetup)
         UI.botSetup:Show()
         UI.RefreshBotSetup()
         return
@@ -900,6 +1038,7 @@ function UI.ShowBotSetup()
     local frame = box(UIParent, 430, 240)
     skinPanel(frame, true, 17)
     frame:SetPoint("CENTER")
+    fitWindow(frame)
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
     UI.botSetup = frame
     local title = label(frame, "Configurar partida contra bot", "large", GOLD, "CENTER")
@@ -1073,6 +1212,29 @@ local function highlightPlayerBar(bar, name, clock, active)
     clock:SetTextColor(unpack(active and GOLD or MUTED))
 end
 
+local function removeLastCharacter(value)
+    local last = #value - 1
+    while last > 0 do
+        local byte = value:byte(last + 1)
+        if byte < 128 or byte >= 192 then break end
+        last = last - 1
+    end
+    return value:sub(1, last)
+end
+
+local function setPlayerBarName(label, character, side)
+    local width = label:GetWidth()
+    label:SetWidth(1000)
+    label:SetText(character .. side)
+    if label:GetStringWidth() > width - 4 then
+        repeat
+            character = removeLastCharacter(character)
+            label:SetText(character .. "..." .. side)
+        until character == "" or label:GetStringWidth() <= width - 4
+    end
+    label:SetWidth(width)
+end
+
 function UI.RefreshGame()
     local game = WC.Game.active
     if not game then return end
@@ -1080,13 +1242,16 @@ function UI.RefreshGame()
         UI.highlightedMove = nil
     end
     UI.drawButton:SetShown(game.mode ~= "bot")
-    UI.backButton:ClearAllPoints()
-    UI.backButton:SetPoint("TOPLEFT", 16, game.mode == "bot" and -604 or -656)
+    UI.undoButton:SetShown(game.mode == "bot")
+    if game.mode == "bot" then
+        if WC.Game.CanUndoBotTurn() then UI.undoButton:Enable(); UI.undoButton:SetAlpha(1)
+        else UI.undoButton:Disable(); UI.undoButton:SetAlpha(.55) end
+    end
     local function displayName(name)
         return WC.ShortName(game.mode == "bot" and name == game.opponent and WC.L(name) or name)
     end
-    UI.selfName:SetText(WC.ShortName(WC.me) .. WC.L(game.color == "w" and " · Blancas" or " · Negras"))
-    UI.opponentName:SetText(displayName(game.opponent) .. WC.L(game.color == "w" and " · Negras" or " · Blancas"))
+    setPlayerBarName(UI.selfName, WC.ShortName(WC.me), WC.L(game.color == "w" and " · Blancas" or " · Negras"))
+    setPlayerBarName(UI.opponentName, displayName(game.opponent), WC.L(game.color == "w" and " · Negras" or " · Blancas"))
     UI.startLabel:SetText(string.format(WC.L("Empieza: %s"), displayName(game.white)))
     local current = game.state.turn == game.color and WC.me or game.opponent
     UI.boardTurn:SetText(string.format(WC.L(game.seq == 0 and "Empieza: %s" or "Turno: %s"), displayName(current)))
@@ -1172,13 +1337,14 @@ function UI.ShowMain()
     UI.RefreshPlayers()
     UI.gameFrame:Hide()
     UI.SetMainSection(UI.mainSection)
+    fitWindow(UI.main)
     UI.main:Show()
 end
 
 function UI.ShowGame()
     if not WC.Game.active then return end
     UI.ClearMoveNotification()
-    fitGameFrame(UI.gameFrame)
+    fitWindow(UI.gameFrame)
     UI.selected, UI.legal = nil, {}
     UI.main:Hide()
     UI.gameFrame:Show()
@@ -1240,6 +1406,7 @@ function UI.Initialize()
     makeMain()
     UI.RefreshProfilePortrait()
     makeGame()
+    UI.RefreshWindowScale()
     UI.RefreshLanguage()
     local launcher = CreateFrame("Button", nil, Minimap or UIParent)
     launcher:SetSize(31, 31)
@@ -1256,6 +1423,34 @@ function UI.Initialize()
     icon:SetTexture(WC.assetRoot .. "minimap_icon.png")
     icon:SetSize(17, 17)
     icon:SetPoint("TOPLEFT", 7, -6)
+    local iconGlow = launcher:CreateTexture(nil, "OVERLAY", nil, 3)
+    iconGlow:SetTexture(WC.assetRoot .. "minimap_icon.png")
+    iconGlow:SetSize(24, 24)
+    iconGlow:SetPoint("CENTER", icon, "CENTER")
+    iconGlow:SetBlendMode("ADD")
+    iconGlow:SetVertexColor(1, .82, .28)
+    iconGlow:Hide()
+    local iconPulse = iconGlow:CreateAnimationGroup()
+    iconPulse:SetLooping("REPEAT")
+    local iconBrighten = iconPulse:CreateAnimation("Alpha")
+    iconBrighten:SetOrder(1)
+    iconBrighten:SetDuration(.65)
+    iconBrighten:SetFromAlpha(.18)
+    iconBrighten:SetToAlpha(.9)
+    local iconDim = iconPulse:CreateAnimation("Alpha")
+    iconDim:SetOrder(2)
+    iconDim:SetDuration(.65)
+    iconDim:SetFromAlpha(.9)
+    iconDim:SetToAlpha(.18)
+    local iconLights = {}
+    for _, point in ipairs({ { "TOPRIGHT", -4, -4 }, { "BOTTOMLEFT", 4, 4 } }) do
+        local light = colorTexture(launcher, "OVERLAY", 1, .9, .45, .9)
+        light:SetSize(4, 4)
+        light:SetPoint(point[1], icon, point[1], point[2], point[3])
+        light:SetBlendMode("ADD")
+        light:Hide()
+        iconLights[#iconLights + 1] = light
+    end
     local border = launcher:CreateTexture(nil, "OVERLAY")
     border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
     border:SetSize(53, 53)
@@ -1322,6 +1517,9 @@ function UI.Initialize()
     UI.moveBorderGlow = borderGlow
     UI.moveGlow = glow
     UI.movePulse = pulse
+    UI.moveIconGlow = iconGlow
+    UI.moveIconPulse = iconPulse
+    UI.moveIconLights = iconLights
     UI.RefreshPlayers()
     UI.ShowMain()
 end

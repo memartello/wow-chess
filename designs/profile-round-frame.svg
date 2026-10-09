@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <radialGradient id="panel">
+      <stop offset="0" stop-color="#382515"/>
+      <stop offset="1" stop-color="#23170f"/>
+    </radialGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#e7c273"/>
+      <stop offset="0.45" stop-color="#9a6a30"/>
+      <stop offset="1" stop-color="#594024"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#panel)" fill-rule="evenodd"
+        d="M0 0H128V128H0Z M64 10A54 54 0 1 0 64 118A54 54 0 1 0 64 10Z"/>
+  <circle cx="64" cy="64" r="55" fill="none" stroke="#110c09" stroke-width="8"/>
+  <circle cx="64" cy="64" r="54" fill="none" stroke="url(#metal)" stroke-width="5"/>
+  <circle cx="64" cy="64" r="51" fill="none" stroke="#f1ca74" stroke-opacity="0.75" stroke-width="1"/>
+</svg>

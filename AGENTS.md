@@ -26,7 +26,7 @@
 ## Arquitectura
 
 - Mantener independientes la lógica de ajedrez, el estado y reloj de la partida, el transporte entre clientes, la interfaz y los recursos visuales.
-- Guardar en SavedVariables el idioma, el fondo de tablero, el set de piezas y la posición angular del icono del minimapa elegidos. Mantener las opciones visuales separadas de las reglas y de la asignación de blancas y negras.
+- Guardar en SavedVariables el idioma, el fondo de tablero, los aspectos de piezas elegidos por separado para blancas y negras y la posición angular del icono del minimapa. Mantener las opciones visuales separadas de las reglas y de la asignación de blancas y negras.
 - Permitir mostrar u ocultar coordenadas de rango y columna dentro de las casillas del borde desde Opciones; habilitarlas por defecto y guardar la preferencia en SavedVariables. Orientar etiquetas según el lado del tablero.
 - Ejecutar la búsqueda del bot por tramos breves entre cuadros para que la interfaz siga respondiendo; limitar también el tiempo total de cada jugada.
 - El motor de ajedrez debe ser Lua puro y poder probarse fuera del cliente.
@@ -41,7 +41,7 @@
 
 - `designs/main.png` y `designs/match.png` son referencias de interfaz. `designs/bacgrounds.png` contiene paneles y fondos para la interfaz; `designs/icon.png` es una hoja de iconos para Jugar/Partida rápida, Aspectos, Historial, Opciones y Jugar con bot. Preparar los recursos que se usen de forma independiente en `WoWChess/assets/`.
 - En la pantalla principal, usar el banner panorámico a todo el ancho de la columna de juego y el fondo de pergamino debajo, detrás de las acciones y la lista de jugadores.
-- Ofrecer el tablero cuadrado de `designs/square-board.png` para la Alianza y el tablero cuadrado de la Horda de `designs/horde-square.png` para la Horda como valores predeterminados por facción cuando no haya una selección guardada; incluir también el tablero de arriba a la izquierda de `designs/board` (Durotar) y un tablero clásico generado por la interfaz. Ofrecer las piezas básicas de `designs/basic-pieces.png` como opción predeterminada y las piezas humanas contra orcos de `designs/pieces` como alternativa. Conservar los temas ya elegidos en SavedVariables.
+- Ofrecer el tablero cuadrado de `designs/square-board.png` para la Alianza y el tablero cuadrado de la Horda de `designs/horde-square.png` para la Horda como valores predeterminados por facción cuando no haya una selección guardada; incluir también los tableros de no-muertos y elfos y un tablero clásico generado por la interfaz. Ofrecer piezas básicas, humanas, orcas, élficas y no-muertas para elegir por separado la apariencia de blancas y negras, usando la variante de color correspondiente. Conservar las elecciones válidas en SavedVariables y migrar las parejas de piezas guardadas anteriormente; si un tablero guardado dejó de existir, volver al predeterminado de la facción.
 - Mantener la asignación de blancas y negras separada del aspecto humano/orco; tablero y piezas deben poder sustituirse sin cambiar las reglas.
 
 ## Verificación

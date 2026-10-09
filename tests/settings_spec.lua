@@ -3,6 +3,13 @@ local function widget()
     function methods:CreateTexture() return widget() end
     function methods:CreateFontString() return widget() end
     function methods:SetSize(width, height) self.width, self.height = width, height end
+    function methods:SetScale(scale) self.scale = scale end
+    function methods:SetAlpha(alpha) self.alpha = alpha end
+    function methods:SetValue(value)
+        self.value = value
+        if self.scripts.OnValueChanged then self.scripts.OnValueChanged(self, value) end
+    end
+    function methods:SetWidth(width) self.width = width end
     function methods:GetWidth() return self.width end
     function methods:GetHeight() return self.height end
     function methods:GetCenter() return 100, 100 end
@@ -11,6 +18,7 @@ local function widget()
     function methods:SetFrameLevel(value) self.frameLevel = value end
     function methods:SetText(value) self.text = value end
     function methods:GetText() return self.text end
+    function methods:GetStringWidth() return #(self.text or "") * 7 end
     function methods:SetTexture(value) self.texture = value end
     function methods:SetColorTexture(...) self.color = { ... } end
     function methods:SetTexCoord(...) self.texCoord = { ... } end
@@ -26,6 +34,9 @@ local function widget()
     function methods:Hide() self.shown = false end
     function methods:SetShown(value) self.shown = value end
     function methods:IsShown() return self.shown ~= false end
+    function methods:Enable() self.enabled = true end
+    function methods:Disable() self.enabled = false end
+    function methods:IsEnabled() return self.enabled ~= false end
     return setmetatable({ scripts = {}, shown = true }, {
         __index = function(_, key) return methods[key] or function() end end,
     })
@@ -61,6 +72,10 @@ assert(loadfile("WoWChess/Chess.lua"))("WoWChess", WC)
 assert(loadfile("WoWChess/Theme.lua"))("WoWChess", WC)
 assert(loadfile("WoWChess/Identity.lua"))("WoWChess", WC)
 assert(loadfile("WoWChess/UI.lua"))("WoWChess", WC)
+WC.Game.CanUndoBotTurn = function()
+    local active = WC.Game.active
+    return active and active.mode == "bot" and active.undoTurns and #active.undoTurns > 0 or false
+end
 
 assert(WC.Language() == "en", "English client locale")
 WC.UI.Initialize()
@@ -71,10 +86,20 @@ assert(#WC.UI.mainNav == 2 and WC.UI.mainNav[1].section == "home" and
     WC.UI.mainNav[2].section == "options" and WC.UI.mainNav[1].button.warcraftTone == "gold" and
     WC.UI.playerRows[1].challenge.warcraftSlices[1].texture == WC.assetRoot .. "button_red.png",
     "navigation shows only Play and Options with Warcraft textures")
-assert(WC.UI.boardButtons.square.caption.text == WC.L("Cuadrado") and
+assert(WC.UI.boardButtons.square.caption.text == "Alliance" and
     WC.UI.boardButtons.undead.caption.text == "Undead" and
     WC.UI.boardButtons.elves.caption.text == "Elves" and
-    WC.UI.pieceButtons.basic.caption.text == WC.L("Piezas básicas") and
+    WC.UI.pieceButtons.w.basic.caption.text == "Alliance" and
+    WC.UI.pieceButtons.b.basic.caption.text == "Horde" and
+    WC.UI.pieceButtons.w.human.caption.text == "Humans" and
+    WC.UI.pieceButtons.b.orc.caption.text == "Orcs" and
+    WC.UI.windowSizeButtons.small.caption.text == "Small" and
+    WC.UI.windowSizeButtons.normal.caption.text == "Normal" and
+    WC.UI.windowSizeButtons.large.caption.text == "Large" and
+    WC.UI.windowSizeButtons.normal.warcraftTone == "gold" and
+    WC.UI.soundButton.caption.text == "Turn sound: On" and
+    WC.UI.muteWhenOpenButton.caption.text == "Mute while window is open: Off" and
+    WC.UI.opacityValue.text == "100%" and
     WC.UI.languageButtons.en.caption.text == WC.L("Inglés") and
     WC.UI.coordinateButton.caption.text == WC.L("Coordenadas") .. ": " .. WC.L("Activadas"),
     "options use active colors without checkbox prefixes")
@@ -117,6 +142,7 @@ assert(#WC.UI.gameFrame.skinPieces == 9 and #WC.UI.selfBar.skinPieces == 9 and
     "match frame, player sections and actions use the same artwork")
 WC.UI.ShowBotSetup()
 assert(#WC.UI.botSetup.skinPieces == 9 and
+    WC.UI.botSetup.scale == 1 and
     WC.UI.botSetup.difficultyButtons[2].button.warcraftTone == "gold" and
     WC.UI.botSetup.colorButtons[1].button.warcraftTone == "gold",
     "bot setup highlights its initial difficulty and color")
@@ -132,15 +158,48 @@ assert(WC.UI.botSetup.difficultyButtons[3].button.caption.text == WC.L("Difícil
 WC.UI.botSetup:Hide()
 WC.UI.ShowPromotion("e7", "e8")
 assert(#WC.UI.promotion.skinPieces == 9 and #WC.UI.promotion.actionButtons == 4 and
+    WC.UI.promotion.scale == 1 and
     WC.UI.promotion.actionButtons[2].warcraftSlices[1].texture == WC.assetRoot .. "button_dark.png",
     "promotion popup uses the shared panel and button artwork")
 WC.UI.promotion:Hide()
 WC.UI.ShowResult({ won = true, winner = "w", reason = "mate" })
 assert(#WC.UI.resultModal.skinPieces == 9 and
+    WC.UI.resultModal.scale == 1 and
     WC.UI.resultModal.actionButtons[1].warcraftSlices[1].texture == WC.assetRoot .. "button_red.png",
     "match result popup uses the shared panel and button artwork")
 WC.UI.resultModal:Hide()
-assert(WC.Theme.Background().id == "square" and WC.Theme.PieceSet().id == "basic", "new settings default to the supplied theme")
+assert(WC.Theme.Background().id == "square" and WC.Theme.PieceStyle("w").id == "basic" and
+    WC.Theme.PieceStyle("b").id == "basic", "new settings default to the supplied theme")
+assert(WC.Theme.WindowSize().id == "normal" and WC.UI.main.scale == 1 and WC.UI.gameFrame.scale == 1,
+    "window size defaults to normal")
+WC.UI.windowSizeButtons.small.scripts.OnClick()
+assert(WC.db.settings.windowSize == "small" and WC.UI.main.scale == .85 and
+    WC.UI.gameFrame.scale == .85 and WC.UI.botSetup.scale == .85 and
+    WC.UI.promotion.scale == .85 and WC.UI.resultModal.scale == .85 and
+    WC.UI.windowSizeButtons.small.warcraftTone == "gold", "small size applies to existing windows")
+WC.UI.windowSizeButtons.large.scripts.OnClick()
+assert(WC.db.settings.windowSize == "large" and WC.UI.main.scale == 1.15 and
+    WC.UI.gameFrame.scale == 1.15, "large size is saved and applied")
+UIParent:SetSize(1024, 768)
+WC.UI.RefreshWindowScale()
+assert(WC.UI.main.scale <= (768 - 24) / 850 and
+    WC.UI.gameFrame.scale <= (768 - 24) / 850,
+    "windows fit the available screen")
+UIParent:SetSize(1920, 1080)
+WC.UI.windowSizeButtons.normal.scripts.OnClick()
+assert(WC.db.settings.windowSize == "normal" and WC.UI.main.scale == 1 and WC.UI.gameFrame.scale == 1 and
+    not WC.Theme.SetWindowSize("missing"), "normal size can be restored and invalid sizes are rejected")
+WC.UI.opacitySlider:SetValue(55)
+assert(WC.db.settings.frameOpacity == .55 and WC.UI.opacityValue.text == "55%" and
+    WC.UI.main.skinPieces[1].alpha == .55 and WC.UI.optionsContent.skinPieces[1].alpha == .55 and
+    WC.UI.selfBar.skinPieces[1].alpha == .55 and WC.UI.resultModal.skinPieces[1].alpha == .55 and
+    WC.UI.homeParchment.alpha == .55, "opacity applies to outer and inner panel artwork")
+WC.UI.ShowInvite("Bob-Realm")
+assert(WC.UI.invite.skinPieces[1].alpha == .55, "new popups inherit the saved opacity")
+WC.UI.HideInvite()
+WC.UI.opacitySlider:SetValue(100)
+assert(WC.Theme.FrameOpacity() == 1 and not WC.Theme.SetFrameOpacity(.2),
+    "opacity can be restored and out-of-range values are rejected")
 assert(WC.UI.boardImage.texture == WC.assetRoot .. "board_square.png" and WC.UI.boardFrame.width == 630 and
     WC.UI.boardFrame.height == 630,
     "square board artwork and geometry apply by default")
@@ -148,6 +207,8 @@ assert(WC.UI.gameFrame.width == 1010 and WC.UI.boardFrame.point[2] == 12 and
     WC.UI.turnLabel == nil, "match window has no left information column")
 assert(WC.UI.resignButton.point[1] == "TOPLEFT" and WC.UI.resignButton.point[3] == -552 and
     WC.UI.resignButton.scripts.OnClick ~= nil, "resign is in the right selected-piece section")
+assert(WC.UI.undoButton.caption.text == "Undo turn" and WC.UI.undoButton.point[3] == -604,
+    "bot undo action is translated and placed with the match controls")
 assert(math.abs(WC.UI.boardFrame.point[3] + 58 + (756 - 630) / 2) < .01,
     "board is vertically centered in the match content")
 assert(math.abs(WC.UI.cells[1].frame.point[2] - 77 * 630 / 1024) < .01 and
@@ -167,6 +228,10 @@ assert(WC.UI.launcherBorder.texture == "Interface\\Minimap\\MiniMap-TrackingBord
 assert(WC.UI.moveGlow.width == WC.UI.launcherBorder.width and WC.UI.moveGlow.height == WC.UI.launcherBorder.height and
     WC.UI.moveGlow.point[2] == WC.UI.launcherBorder and WC.UI.moveBorderGlow.point[2] == WC.UI.launcherBorder,
     "both pulse layers are centered on the native border")
+assert(WC.UI.moveIconGlow.texture == WC.UI.launcherIcon.texture and
+    WC.UI.moveIconGlow.point[2] == WC.UI.launcherIcon and #WC.UI.moveIconLights == 2 and
+    not WC.UI.moveIconGlow:IsShown() and not WC.UI.moveIconLights[1]:IsShown(),
+    "the icon's extra light layers start hidden and stay centered")
 local launcher = WC.UI.launcher
 assert(launcher.point[1] == "CENTER" and launcher.point[2] == Minimap and
     math.abs(launcher.point[4] + 75 / math.sqrt(2)) < .01 and
@@ -194,8 +259,14 @@ assert(WC.UI.optionsContent:IsShown() and not WC.UI.homeContent:IsShown(), "opti
 assert(WC.UI.mainNav[1].button.warcraftTone == "dark" and WC.UI.mainNav[2].button.warcraftTone == "gold",
     "selected navigation button follows the visible section")
 assert(WC.UI.boardButtons.undead.point[2] == 400 and WC.UI.boardButtons.elves.point[2] == 20 and
-    WC.UI.boardButtons.elves.point[3] == -185,
-    "six board choices fit in two rows above the piece choices")
+    WC.UI.boardButtons.elves.point[3] == -185 and
+    #WC.Theme.backgrounds == 5 and WC.UI.boardButtons.durotar == nil,
+    "five board choices fit in two rows above the piece choices")
+assert(WC.UI.pieceButtons.w.basic.point[2] == 20 and
+    WC.UI.pieceButtons.w.basic.point[3] == -292 and
+    WC.UI.pieceButtons.b.undead.point[2] == 468 and
+    WC.UI.pieceButtons.b.undead.point[3] == -361,
+    "independent white and black choices fit above the language controls")
 for _, choice in ipairs({
     { id = "undead", path = "board_undead.png", gridX = 110, gridY = 110 },
     { id = "elves", path = "board_elves.png", gridX = 112, gridY = 126 },
@@ -219,23 +290,64 @@ assert(WC.UI.cells[1].frame.tile:IsShown() and WC.UI.classicPreview:IsShown(), "
 WC.UI.languageButtons.es.scripts.OnClick()
 assert(WC.db.settings.language == "es" and WC.L("Opciones") == "Opciones", "Spanish selection")
 assert(WC.UI.boardButtons.undead.caption.text == "No-muertos" and
-    WC.UI.boardButtons.elves.caption.text == "Elfos", "new boards have Spanish labels")
+    WC.UI.boardButtons.square.caption.text == "Alianza" and
+    WC.UI.boardButtons.elves.caption.text == "Elfos" and
+    WC.UI.pieceButtons.w.basic.caption.text == "Alianza" and
+    WC.UI.pieceButtons.b.basic.caption.text == "Horda" and
+    WC.UI.windowSizeButtons.small.caption.text == "Pequeño" and
+    WC.UI.windowSizeButtons.large.caption.text == "Grande" and
+    WC.UI.soundButton.caption.text == "Sonido de turno: Sí" and
+    WC.UI.muteWhenOpenButton.caption.text == "Silenciar con ventana abierta: No" and
+    WC.UI.pieceButtons.w.human.caption.text == "Humanos" and
+    WC.UI.pieceButtons.b.orc.caption.text == "Orcos",
+    "new board and piece choices have Spanish labels")
 WC.UI.languageButtons.en.scripts.OnClick()
 assert(WC.L("Opciones") == "Options", "English selection")
-WC.UI.boardButtons.durotar.scripts.OnClick()
-assert(WC.db.settings.board == "durotar" and WC.UI.boardImage:IsShown(), "Durotar board applies")
-assert(not WC.UI.cells[1].frame.tile:IsShown() and WC.UI.boardPreview:IsShown(), "Durotar preview")
-assert(WC.UI.boardFrame.height == 630 and WC.UI.boardFrame.width == 560 and
-    WC.UI.boardImage.texCoord[2] < 1 and WC.UI.boardImage.texCoord[3] > 0,
-    "Durotar fits the separate player sections without changing grid scale")
-assert(not WC.Theme.SetBackground("missing") and WC.Theme.Background().id == "durotar", "invalid background")
-WC.UI.pieceButtons.factions.scripts.OnClick()
-assert(WC.db.settings.pieces == "factions" and WC.Theme.PiecePath("wP") == WC.assetRoot .. "pieces\\human_P.png",
-    "faction pieces remain selectable")
-assert(not WC.Theme.SetPieceSet("missing") and WC.Theme.PieceSet().id == "factions", "invalid piece set")
-WC.UI.pieceButtons.basic.scripts.OnClick()
-assert(WC.Theme.PieceSet().id == "basic" and WC.UI.previewText.text:find("Basic pieces", 1, true),
-    "basic pieces can be restored independently of the board")
+assert(not WC.Theme.SetBackground("durotar") and WC.Theme.Background().id == "classic",
+    "removed board cannot be selected")
+WC.db.settings.board = "durotar"
+assert(WC.Theme.Background().id == "square" and WC.db.settings.board == nil,
+    "old Durotar selection migrates to the Alliance default")
+local previousFaction = UnitFactionGroup
+UnitFactionGroup = function() return "Horde" end
+WC.db.settings.board = "durotar"
+assert(WC.Theme.Background().id == "horde" and WC.db.settings.board == nil,
+    "old Durotar selection migrates to the Horde default")
+UnitFactionGroup = previousFaction
+WC.UI.RefreshTheme()
+WC.UI.RefreshSettings()
+assert(not WC.Theme.SetBackground("missing") and WC.Theme.Background().id == "square", "invalid background")
+WC.UI.pieceButtons.w.elf.scripts.OnClick()
+WC.UI.pieceButtons.b.undead.scripts.OnClick()
+assert(WC.db.settings.whitePieces == "elf" and WC.db.settings.blackPieces == "undead" and
+    WC.UI.pieceButtons.w.elf.warcraftTone == "gold" and WC.UI.pieceButtons.b.undead.warcraftTone == "gold" and
+    WC.Theme.PiecePath("wP") == WC.assetRoot .. "pieces\\elf_light_P.png" and
+    WC.Theme.PiecePath("bK") == WC.assetRoot .. "pieces\\undead_black_K.png" and
+    WC.UI.previewText.text:find("White: Elves", 1, true) and
+    WC.UI.previewText.text:find("Black: Undead", 1, true),
+    "white elf and black undead styles are saved independently")
+WC.UI.pieceButtons.w.orc.scripts.OnClick()
+assert(WC.Theme.PiecePath("wP") == WC.assetRoot .. "pieces\\orc_white_P.png" and
+    WC.Theme.PieceStyle("b").id == "undead", "changing white pieces leaves black pieces unchanged")
+WC.UI.pieceButtons.b.human.scripts.OnClick()
+assert(WC.Theme.PiecePath("bK") == WC.assetRoot .. "pieces\\human_black_K.png" and
+    WC.Theme.PieceStyle("w").id == "orc", "changing black pieces leaves white pieces unchanged")
+assert(not WC.Theme.SetPieceStyle("w", "missing") and not WC.Theme.SetPieceStyle("x", "human"),
+    "invalid side or style is rejected")
+WC.db.settings.whitePieces, WC.db.settings.blackPieces, WC.db.settings.pieces = nil, nil, "factions"
+assert(WC.Theme.PieceStyle("w").id == "human" and WC.Theme.PieceStyle("b").id == "orc" and
+    WC.db.settings.whitePieces == "human" and WC.db.settings.blackPieces == "orc" and
+    WC.db.settings.pieces == nil, "saved human and orc preset migrates to independent choices")
+WC.db.settings.whitePieces, WC.db.settings.blackPieces, WC.db.settings.pieces = nil, nil, "elves_undead"
+assert(WC.Theme.PieceStyle("w").id == "elf" and WC.Theme.PieceStyle("b").id == "undead",
+    "saved elf and undead preset migrates to independent choices")
+WC.UI.pieceButtons.w.basic.scripts.OnClick()
+WC.UI.pieceButtons.b.basic.scripts.OnClick()
+assert(WC.Theme.PieceStyle("w").id == "basic" and WC.Theme.PieceStyle("b").id == "basic",
+    "basic pieces can be restored independently for both sides")
+assert(WC.UI.previewText.text:find("White: Alliance", 1, true) and
+    WC.UI.previewText.text:find("Black: Horde", 1, true),
+    "basic pieces use side-specific names in the preview")
 
 WC.Game.Remaining = function() return 600 end
 WC.Game.active = {
@@ -244,12 +356,29 @@ WC.Game.active = {
 }
 WC.UI.ShowGame()
 assert(WC.UI.opponentName.text == "Intermediate bot · Black", "English match labels")
-assert(not WC.UI.drawButton:IsShown() and WC.UI.backButton.point[3] == -604,
-    "practice mode packs the remaining right-panel actions together")
+assert(not WC.UI.drawButton:IsShown() and WC.UI.undoButton:IsShown() and
+    not WC.UI.undoButton:IsEnabled() and WC.UI.backButton.point[3] == -656,
+    "practice mode shows undo disabled until the player has moved")
+WC.Game.active.undoTurns = { { state = WC.Game.active.state } }
+WC.UI.RefreshGame()
+assert(WC.UI.undoButton:IsEnabled(), "undo becomes available after a player turn")
+WC.Game.active.undoTurns = nil
 WC.Game.active.mode = "peer"
 WC.UI.RefreshGame()
-assert(WC.UI.drawButton:IsShown() and WC.UI.backButton.point[3] == -656,
-    "multiplayer mode shows draw and back actions in the right panel")
+assert(WC.UI.drawButton:IsShown() and not WC.UI.undoButton:IsShown() and WC.UI.backButton.point[3] == -656,
+    "multiplayer mode shows draw but not undo")
+local ownName, opponentName = WC.me, WC.Game.active.opponent
+WC.me = "VeryLongCharacterSurnameOfAzeroth-Realm"
+WC.Game.active.opponent = "AnotherExtremelyLongOpponentName-Realm"
+WC.UI.RefreshGame()
+for _, name in ipairs({ WC.UI.selfName, WC.UI.opponentName }) do
+    assert(name.text:find("...", 1, true) and name:GetStringWidth() <= name.width - 4 and
+        not name.text:find("\n", 1, true), "long player names stay on one line with an ellipsis")
+end
+assert(WC.UI.selfName.text:sub(-#" · White") == " · White" and
+    WC.UI.opponentName.text:sub(-#" · Black") == " · Black",
+    "truncation keeps the player color visible")
+WC.me, WC.Game.active.opponent = ownName, opponentName
 WC.Game.active.mode = "bot"
 WC.UI.RefreshGame()
 assert(WC.UI.selfBar.border.color[1] == 1 and WC.UI.opponentBar.border.color[1] < 1 and
@@ -285,10 +414,24 @@ assert(WC.UI.cells[1].frame.tile:IsShown() and WC.UI.boardFrame:IsShown(), "boar
 WC.UI.boardButtons.square.scripts.OnClick()
 assert(WC.UI.boardFrame.height == 630 and not WC.UI.cells[1].frame.tile:IsShown(),
     "square board can replace the classic board during a game")
-WC.UI.pieceButtons.factions.scripts.OnClick()
-assert(WC.UI.cells[1].frame.piece.texture == WC.assetRoot .. "pieces\\orc_R.png",
-    "changing piece sets refreshes an active match")
-WC.UI.pieceButtons.basic.scripts.OnClick()
+WC.UI.pieceButtons.w.human.scripts.OnClick()
+WC.UI.pieceButtons.b.undead.scripts.OnClick()
+assert(WC.UI.cells[1].frame.piece.texture == WC.assetRoot .. "pieces\\undead_black_R.png" and
+    WC.UI.cells[57].frame.piece.texture == WC.assetRoot .. "pieces\\human_white_R.png",
+    "independent piece choices refresh both sides of an active match")
+WC.Game.active.color = "b"
+WC.UI.RefreshGame()
+assert(WC.UI.cells[1].frame.piece.texture == WC.assetRoot .. "pieces\\human_white_R.png" and
+    WC.UI.cells[57].frame.piece.texture == WC.assetRoot .. "pieces\\undead_black_R.png",
+    "piece appearance follows chess color when the board faces black")
+WC.Game.active.color = "w"
+WC.UI.RefreshGame()
+WC.UI.pieceButtons.b.elf.scripts.OnClick()
+assert(WC.UI.cells[1].frame.piece.texture == WC.assetRoot .. "pieces\\elf_dark_R.png" and
+    WC.UI.cells[57].frame.piece.texture == WC.assetRoot .. "pieces\\human_white_R.png",
+    "changing only black pieces preserves the white appearance")
+WC.UI.pieceButtons.w.basic.scripts.OnClick()
+WC.UI.pieceButtons.b.basic.scripts.OnClick()
 WC.UI.languageButtons.es.scripts.OnClick()
 assert(WC.UI.opponentName.text == "Bot intermedio · Negras", "language changes during a game")
 assert(WC.UI.boardTurn.text == "Empieza: Alice", "board turn label changes immediately")
@@ -332,11 +475,13 @@ assert(WC.UI.opponentLostIcons[1]:IsShown() and
     WC.UI.selfLostIcons[1]:IsShown() and
     WC.UI.selfLostIcons[1].texture == WC.assetRoot .. "pieces\\basic_white_P.png",
     "both player rows show their own lost pieces")
-WC.UI.pieceButtons.factions.scripts.OnClick()
-assert(WC.UI.opponentLostIcons[1].texture == WC.assetRoot .. "pieces\\orc_P.png" and
-    WC.UI.selfLostIcons[1].texture == WC.assetRoot .. "pieces\\human_P.png",
-    "lost pieces follow the selected piece set")
-WC.UI.pieceButtons.basic.scripts.OnClick()
+WC.UI.pieceButtons.w.orc.scripts.OnClick()
+WC.UI.pieceButtons.b.human.scripts.OnClick()
+assert(WC.UI.opponentLostIcons[1].texture == WC.assetRoot .. "pieces\\human_black_P.png" and
+    WC.UI.selfLostIcons[1].texture == WC.assetRoot .. "pieces\\orc_white_P.png",
+    "lost pieces follow independent white and black selections")
+WC.UI.pieceButtons.w.basic.scripts.OnClick()
+WC.UI.pieceButtons.b.basic.scripts.OnClick()
 WC.Game.active.state, WC.Game.active.seq = priorState, priorSeq
 WC.UI.RefreshGame()
 assert(not WC.UI.opponentLostIcons[1]:IsShown() and not WC.UI.selfLostIcons[1]:IsShown(),
@@ -344,13 +489,20 @@ assert(not WC.UI.opponentLostIcons[1]:IsShown() and not WC.UI.selfLostIcons[1]:I
 assert(not WC.UI.moveGlow:IsShown() and not WC.UI.moveBorderGlow:IsShown(), "border glows start hidden")
 WC.UI.ShowMain()
 WC.UI.NotifyOpponentMove()
-assert(WC.UI.moveGlow:IsShown() and WC.UI.moveBorderGlow:IsShown() and WC.UI.movePulse.playing and WC.UI.moveNotice, "opponent move pulses the minimap border")
+assert(WC.UI.moveGlow:IsShown() and WC.UI.moveBorderGlow:IsShown() and WC.UI.movePulse.playing and
+    WC.UI.moveIconGlow:IsShown() and WC.UI.moveIconPulse.playing and
+    WC.UI.moveIconLights[1]:IsShown() and WC.UI.moveIconLights[2]:IsShown() and WC.UI.moveNotice,
+    "opponent move lights the icon and pulses the minimap border")
 assert(#sounds == 1 and sounds[1] == SOUNDKIT.UI_GROUP_FINDER_RECEIVE_APPLICATION, "one Group Finder alert plays for the move")
 WC.UI.NotifyOpponentMove()
-assert(WC.UI.movePulse.playCount == 1 and #sounds == 1, "duplicate notification does not restart the pulse or sound")
+assert(WC.UI.movePulse.playCount == 1 and WC.UI.moveIconPulse.playCount == 1 and #sounds == 1,
+    "duplicate notification does not restart the light, border pulse or sound")
 now = now + 1
 WC.UI.launcher.scripts.OnClick(WC.UI.launcher)
-assert(WC.UI.gameFrame:IsShown() and not WC.UI.moveGlow:IsShown() and not WC.UI.moveBorderGlow:IsShown() and not WC.UI.movePulse.playing, "minimap click opens game and acknowledges move")
+assert(WC.UI.gameFrame:IsShown() and not WC.UI.moveGlow:IsShown() and not WC.UI.moveBorderGlow:IsShown() and
+    not WC.UI.movePulse.playing and not WC.UI.moveIconGlow:IsShown() and
+    not WC.UI.moveIconPulse.playing and not WC.UI.moveIconLights[1]:IsShown(),
+    "minimap click opens game and acknowledges both alert effects")
 WC.UI.NotifyOpponentMove()
 assert(#sounds == 2, "a later move gets its own sound")
 launcher.scripts.OnClick(launcher)
@@ -358,6 +510,26 @@ assert(WC.UI.gameFrame:IsShown() and not WC.UI.main:IsShown() and not WC.UI.move
     "acknowledging a move keeps an already open match on screen")
 WC.UI.NotifyOpponentMove()
 WC.UI.ClickSquare(WC.Chess.Square("e2"))
-assert(not WC.UI.moveGlow:IsShown() and not WC.UI.moveBorderGlow:IsShown() and not WC.UI.movePulse.playing, "playing clears notification")
+assert(not WC.UI.moveGlow:IsShown() and not WC.UI.moveBorderGlow:IsShown() and not WC.UI.movePulse.playing and
+    not WC.UI.moveIconGlow:IsShown() and not WC.UI.moveIconPulse.playing,
+    "playing clears the border and icon lights")
+WC.UI.soundButton.scripts.OnClick()
+WC.UI.NotifyOpponentMove()
+assert(WC.db.settings.soundsEnabled == false and #sounds == 3 and WC.UI.moveGlow:IsShown() and
+    WC.UI.moveIconGlow:IsShown(),
+    "muting sounds leaves the visual turn alert active")
+WC.UI.ClearMoveNotification()
+WC.UI.soundButton.scripts.OnClick()
+WC.UI.muteWhenOpenButton.scripts.OnClick()
+WC.UI.ShowMain()
+WC.UI.NotifyOpponentMove()
+assert(WC.db.settings.muteWhenOpen == true and #sounds == 3 and WC.UI.moveGlow:IsShown() and
+    WC.UI.moveIconGlow:IsShown(),
+    "open addon window suppresses only the sound")
+WC.UI.ClearMoveNotification()
+WC.UI.main:Hide()
+WC.UI.NotifyOpponentMove()
+assert(#sounds == 4, "turn sound plays when all addon windows are closed")
+WC.UI.ClearMoveNotification()
 
 print("settings_spec: OK")
