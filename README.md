@@ -36,7 +36,8 @@ La carpeta lista para copiar es [`WoWChess/`](WoWChess/). Contiene únicamente l
    También podés copiar `WoWChess/` manualmente dentro de la carpeta `World of Warcraft/_classic_beta_/Interface/AddOns` de tu instalación.
 
 3. Comprobá que exista `Interface/AddOns/WoWChess/WoWChess_Camelot.toc`. El archivo `.toc` debe estar directamente dentro de `WoWChess/`, sin otra carpeta intermedia.
-4. Abrí **WoW: Forever**. En la selección de personajes, entrá a **AddOns** y asegurate de que **WoW Chess** esté habilitado. Para jugar entre dos personas, comprobá que el `## Version` del archivo `.toc` instalado sea el mismo en ambos equipos. Si actualizaste el addon con el juego abierto, usá `/reload` en ambos clientes.
+4. Abrí **WoW: Forever**. En la selección de personajes, entrá a **AddOns** y asegurate de que **WoW Chess** esté habilitado. Para jugar entre dos personas, comprobá que el `## Version` del archivo `.toc` instalado sea el mismo en ambos equipos. Si actualizaste el addon con el juego abierto, reiniciá ambos clientes.
+   El protocolo de la versión `0.3.4-beta` requiere que ambos jugadores la tengan instalada; las versiones anteriores no aparecerán en su lista de jugadores.
 5. Para jugar contra otra persona, ambos jugadores deben instalar y activar el addon. Para practicar contra el bot alcanza con una instalación.
 
 Para actualizarlo, ejecutá de nuevo el instalador de tu sistema operativo con la misma ruta si la habías indicado.

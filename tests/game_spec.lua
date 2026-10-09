@@ -3,7 +3,7 @@ local sent = {}
 local botThinking
 local notices, clears = 0, 0
 local WC = {
-    VERSION = "1", GAME_SECONDS = 600, INVITE_SECONDS = 30,
+    VERSION = "3", GAME_SECONDS = 600, INVITE_SECONDS = 30,
     me = "Alice-Realm", db = { stats = { wins = 0, losses = 0, draws = 0 } },
     UI = {
         ShowGame = function() end, RefreshGame = function() end,
@@ -43,34 +43,34 @@ local game = WC.Game
 local ok = game.Challenge("Bob-Realm")
 assert(ok and game.outgoing)
 local inviteId = game.outgoing.id
-game.OnMessage("ACC", { "1", "ACC", inviteId }, "Bob-Realm")
+game.OnMessage("ACC", { "3", "ACC", inviteId, "Bob-Realm" }, "Bob-Realm")
 assert(game.active and game.active.opponent == "Bob-Realm")
 assert(not game.active.connected, "clock waits for peer handshake")
-game.OnMessage("PING", { "1", "PING", game.active.id, "0" }, "Bob-Realm")
+game.OnMessage("PING", { "3", "PING", game.active.id, "0" }, "Bob-Realm")
 assert(game.active.connected, "peer handshake completes")
 game.active.color = "w"
 now = now + 2
 assert(game.PlayMove(WC.Chess.Square("e2"), WC.Chess.Square("e4")))
 assert(game.active.seq == 1 and game.active.remaining.w == 598)
 local id = game.active.id
-game.OnMessage("MOVE", { "1", "MOVE", id, "2", "e7", "e5", "-", "59900" }, "Bob-Realm")
+game.OnMessage("MOVE", { "3", "MOVE", id, "2", "e7", "e5", "-", "59900" }, "Bob-Realm")
 assert(game.active.seq == 2 and game.active.state.board[WC.Chess.Square("e5")] == "bP")
 assert(notices == 1, "opponent move notification")
-game.OnMessage("MOVE", { "1", "MOVE", id, "2", "e7", "e5", "-", "59900" }, "Bob-Realm")
+game.OnMessage("MOVE", { "3", "MOVE", id, "2", "e7", "e5", "-", "59900" }, "Bob-Realm")
 assert(game.active.seq == 2 and notices == 1, "duplicates do not notify")
 now = now + 21
 game.Tick()
 assert(not game.active and WC.db.stats.wins == 1, "desconexión")
 
-game.OnMessage("INV", { "1", "INV", "123456999999", "Horde" }, "Bob-Realm")
+game.OnMessage("INV", { "3", "INV", "123456999999", "Horde", "Bob-Realm" }, "Bob-Realm")
 assert(not game.incoming, "rechazar facción distinta")
-game.OnMessage("INV", { "1", "INV", "123456999998", "Alliance" }, "Bob-Realm")
+game.OnMessage("INV", { "3", "INV", "123456999998", "Alliance", "Bob-Realm" }, "Bob-Realm")
 assert(game.incoming)
 game.AcceptInvite()
 assert(game.incoming.accepted)
-game.OnMessage("START", { "1", "START", "123456999998", "123456111111", "Alice-Realm" }, "Bob-Realm")
+game.OnMessage("START", { "3", "START", "123456999998", "123456111111", "Alice-Realm" }, "Bob-Realm")
 assert(game.active and game.active.color == "w")
-game.OnMessage("PING", { "1", "PING", game.active.id, "0" }, "Bob-Realm")
+game.OnMessage("PING", { "3", "PING", game.active.id, "0" }, "Bob-Realm")
 game.active.remaining.w = 1
 now = now + 2
 game.Tick()

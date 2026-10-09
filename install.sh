@@ -35,3 +35,4 @@ fi
 cp -a "$project_dir/WoWChess" "$addon_dir/"
 test -f "$addon_dir/WoWChess/WoWChess_Camelot.toc"
 printf 'WoW Chess instalado en: %s/WoWChess\n' "$addon_dir"
+sed -n 's/^## Version: /Versión instalada: /p' "$addon_dir/WoWChess/WoWChess_Camelot.toc"

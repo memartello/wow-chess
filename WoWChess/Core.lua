@@ -3,8 +3,8 @@ _G.WoWChess = WC
 
 WC.addonName = addonName
 WC.assetRoot = "Interface\\AddOns\\" .. addonName .. "\\assets\\"
-WC.VERSION = "2"
-WC.PREFIX = "WoWChess2"
+WC.VERSION = "3"
+WC.PREFIX = "WoWChess3"
 WC.CHANNEL = "WoWChess"
 WC.INVITE_SECONDS = 30
 WC.GAME_SECONDS = 600

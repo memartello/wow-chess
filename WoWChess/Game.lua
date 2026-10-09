@@ -10,6 +10,11 @@ local function same(a, b)
     end
     return WC.ShortName(a):lower() == WC.ShortName(b):lower()
 end
+local function declaredPeer(value, sender)
+    if type(value) ~= "string" or #value > 80 or not value:match("^[^|%-]+%-.+$") then return nil end
+    if not same(value, sender) then return nil end
+    return value
+end
 local function newId() return tostring(time()) .. tostring(math.random(100000, 999999)) end
 local function validId(value) return type(value) == "string" and #value >= 6 and #value <= 32 and value:match("^%d+$") end
 
@@ -131,7 +136,7 @@ function Game.Challenge(target)
     if same(target, WC.me) then return false, "No podés desafiarte a vos mismo." end
     if Game.active or Game.incoming or Game.outgoing then return false, "Ya tenés una partida o invitación pendiente." end
     local invitation = { id = newId(), opponent = target, expires = GetTime() + WC.INVITE_SECONDS }
-    if not WC.Network.SendWhisper(target, WC.VERSION .. "|INV|" .. invitation.id .. "|" .. (UnitFactionGroup("player") or "Neutral")) then
+    if not WC.Network.SendWhisper(target, WC.VERSION .. "|INV|" .. invitation.id .. "|" .. (UnitFactionGroup("player") or "Neutral") .. "|" .. WC.me) then
         return false, "No se pudo enviar el reto. Revisá el nombre y la conexión."
     end
     Game.outgoing = invitation
@@ -145,7 +150,7 @@ function Game.AcceptInvite()
     invite.accepted = true
     invite.expires = GetTime() + WC.INVITE_SECONDS
     invite.retryAt = GetTime() + 2
-    local sent = WC.Network.SendWhisper(invite.opponent, WC.VERSION .. "|ACC|" .. invite.id)
+    local sent = WC.Network.SendWhisper(invite.opponent, WC.VERSION .. "|ACC|" .. invite.id .. "|" .. WC.me)
     if Game.active then return end
     WC.UI.HideInvite()
     WC.UI.SetStatus(sent and "Reto aceptado. Preparando partida..." or "Reintentando conexión con el rival...")
@@ -237,7 +242,7 @@ function Game.Tick()
             WC.UI.SetStatus(incoming.accepted and "No se pudo conectar con el rival." or "La invitación venció.")
         elseif incoming.accepted and now >= incoming.retryAt then
             incoming.retryAt = now + 2
-            WC.Network.SendWhisper(incoming.opponent, WC.VERSION .. "|ACC|" .. incoming.id)
+            WC.Network.SendWhisper(incoming.opponent, WC.VERSION .. "|ACC|" .. incoming.id .. "|" .. WC.me)
         end
     end
     local game = Game.active
@@ -283,8 +288,9 @@ function Game.OnMessage(action, parts, sender)
     if not validId(id) then return end
     local active = Game.active
     if active and active.mode ~= "bot" and active.inviteId == id and same(active.opponent, sender) then
-        if action == "ACC" and active.startMessage and not active.connected then
-            WC.Network.SendWhisper(sender, active.startMessage)
+        if action == "ACC" and active.startMessage and not active.connected and
+            WC.Name(declaredPeer(parts[4], sender)) == WC.Name(active.opponent) then
+            WC.Network.SendWhisper(active.opponent, active.startMessage)
             return
         elseif action == "START" and parts[4] == active.id then
             WC.Network.SendGame("PING", active, tostring(active.seq))
@@ -292,20 +298,22 @@ function Game.OnMessage(action, parts, sender)
         end
     end
     if action == "INV" then
+        local peer = declaredPeer(parts[5], sender)
+        if not peer then return end
         if parts[4] ~= UnitFactionGroup("player") then
-            WC.Network.SendWhisper(sender, WC.VERSION .. "|DEC|" .. id .. "|faction")
+            WC.Network.SendWhisper(peer, WC.VERSION .. "|DEC|" .. id .. "|faction")
             return
         end
-        if Game.active or Game.outgoing or (Game.incoming and not (Game.incoming.id == id and same(Game.incoming.opponent, sender))) then
-            WC.Network.SendWhisper(sender, WC.VERSION .. "|DEC|" .. id .. "|busy")
+        if Game.active or Game.outgoing or (Game.incoming and not (Game.incoming.id == id and WC.Name(Game.incoming.opponent) == WC.Name(peer))) then
+            WC.Network.SendWhisper(peer, WC.VERSION .. "|DEC|" .. id .. "|busy")
             return
         end
         if Game.incoming and Game.incoming.id == id then
-            if Game.incoming.accepted then WC.Network.SendWhisper(sender, WC.VERSION .. "|ACC|" .. id) end
+            if Game.incoming.accepted then WC.Network.SendWhisper(peer, WC.VERSION .. "|ACC|" .. id .. "|" .. WC.me) end
             return
         end
-        Game.incoming = { id = id, opponent = sender, expires = GetTime() + WC.INVITE_SECONDS }
-        WC.UI.ShowInvite(sender)
+        Game.incoming = { id = id, opponent = peer, expires = GetTime() + WC.INVITE_SECONDS }
+        WC.UI.ShowInvite(peer)
         return
     end
     if action == "DEC" and Game.outgoing and Game.outgoing.id == id and same(Game.outgoing.opponent, sender) then
@@ -313,20 +321,19 @@ function Game.OnMessage(action, parts, sender)
         WC.UI.SetStatus(parts[4] == "busy" and "Ese personaje ya está ocupado." or "El reto fue rechazado.")
         return
     end
-    if action == "ACC" and Game.outgoing and Game.outgoing.id == id and same(Game.outgoing.opponent, sender) then
+    local peer = action == "ACC" and declaredPeer(parts[4], sender)
+    if peer and Game.outgoing and Game.outgoing.id == id and same(Game.outgoing.opponent, peer) then
         local outgoing = Game.outgoing
-        -- A short challenge name can resolve to a connected realm. Use the
-        -- sender returned by the client for all subsequent direct messages.
-        outgoing.opponent = sender
+        outgoing.opponent = peer
         if not outgoing.startMessage then
-            outgoing.white = math.random(2) == 1 and WC.me or sender
+            outgoing.white = math.random(2) == 1 and WC.me or peer
             outgoing.gameId = newId()
             outgoing.startMessage = WC.VERSION .. "|START|" .. id .. "|" .. outgoing.gameId .. "|" .. outgoing.white
             outgoing.expires = GetTime() + WC.INVITE_SECONDS
         end
         outgoing.retryAt = GetTime() + 2
-        if WC.Network.SendWhisper(sender, outgoing.startMessage) then
-            start(sender, outgoing.gameId, outgoing.white, id, outgoing.startMessage)
+        if WC.Network.SendWhisper(peer, outgoing.startMessage) then
+            start(peer, outgoing.gameId, outgoing.white, id, outgoing.startMessage)
         else
             WC.UI.SetStatus("Reintentando conexión con el rival...")
         end
@@ -334,7 +341,9 @@ function Game.OnMessage(action, parts, sender)
     end
     if action == "START" and Game.incoming and Game.incoming.accepted and Game.incoming.id == id and same(Game.incoming.opponent, sender) then
         local gameId, white = parts[4], parts[5]
-        if validId(gameId) and (same(white, sender) or same(white, WC.me)) then start(sender, gameId, white, id) end
+        if validId(gameId) and (same(white, Game.incoming.opponent) or same(white, WC.me)) then
+            start(Game.incoming.opponent, gameId, white, id)
+        end
         return
     end
     local game = Game.active
